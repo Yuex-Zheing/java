@@ -10,6 +10,8 @@ import com.wquimis.demo.banking.services.ClienteService;
 import com.wquimis.demo.banking.utils.DtoConverter;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -120,66 +122,80 @@ public class CuentaMovimientoController {
 
     // Endpoint para Reportes
     @Operation(summary = "Generar reporte de movimientos")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Reporte generado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Cliente no encontrado")
+    })
     @GetMapping("/reportes")
     public ResponseEntity<Map<String, Object>> generarReporte(
             @RequestParam("identificacion") String identificacionCliente,
             @RequestParam("fechaInicio") @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate fechaInicio,
             @RequestParam("fechaFin") @DateTimeFormat(pattern = "dd/MM/yyyy") LocalDate fechaFin) {
 
+        // Obtener información del cliente consultado
         var cliente = clienteService.findByIdentificacionPersona(identificacionCliente);
         List<Cuenta> cuentas = cuentaService.findByIdentificacionPersona(identificacionCliente);
 
-        // Crear el objeto del reporte
         Map<String, Object> reporte = new HashMap<>();
         
-        // Fecha del reporte en formato d/M/yyyy
+        // Fecha actual cuando se solicita el reporte
         reporte.put("FechaReporte", LocalDate.now().format(
             java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy")));
 
-        // Información del cliente
+        // Información del cliente consultado
         Map<String, String> clienteInfo = new HashMap<>();
-        clienteInfo.put("nombres", cliente.getPersona().getNombres());
-        clienteInfo.put("identificacion", cliente.getPersona().getIdentificacionpersona());
+        clienteInfo.put("nombres", cliente.getPersona().getNombres()); // nombres completos del cliente
+        clienteInfo.put("identificacion", cliente.getPersona().getIdentificacionpersona()); // identificación del cliente
         reporte.put("Cliente", clienteInfo);
 
-        // Procesar información de cuentas
-        List<Map<String, Object>> cuentasInfo = cuentas.stream().map(cuenta -> {
-            Map<String, Object> cuentaInfo = new HashMap<>();
-            
-            // Información básica de la cuenta
-            cuentaInfo.put("Numero", cuenta.getNumerocuenta().toString());
-            cuentaInfo.put("FechaCreacion", cuenta.getFechacreacion().toLocalDate().format(
-                java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-            cuentaInfo.put("TipoCuenta", cuenta.getTipocuenta().toString());
-            cuentaInfo.put("SaldoInicial", cuenta.getSaldoinicial().toPlainString());
-            cuentaInfo.put("SaldoDisponible", (cuenta.getSaldodisponible() != null ? 
-                cuenta.getSaldodisponible() : cuenta.getSaldoinicial()).toPlainString());
-            cuentaInfo.put("Estado", cuenta.getEstado() ? "ACTIVA" : "INACTIVA");
+        // Procesar y ordenar todas las cuentas del cliente de forma descendente por fecha de creación
+        List<Map<String, Object>> cuentasInfo = cuentas.stream()
+            .sorted((c1, c2) -> c2.getFechacreacion().compareTo(c1.getFechacreacion()))
+            .map(cuenta -> {
+                Map<String, Object> cuentaInfo = new HashMap<>();
+                
+                cuentaInfo.put("Numero", cuenta.getNumerocuenta().toString()); // número de cuenta
+                cuentaInfo.put("FechaCreacion", cuenta.getFechacreacion().toLocalDate().format(
+                    java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))); // fecha de creación
+                cuentaInfo.put("TipoCuenta", cuenta.getTipocuenta().toString()); // tipo de cuenta
+                cuentaInfo.put("SaldoInicial", cuenta.getSaldoinicial().toPlainString()); // saldo inicial
+                cuentaInfo.put("SaldoDisponible", (cuenta.getSaldodisponible() != null ? 
+                    cuenta.getSaldodisponible() : cuenta.getSaldoinicial()).toPlainString()); // saldo actual disponible
+                cuentaInfo.put("Estado", cuenta.getEstado() ? "ACTIVA" : "INACTIVA"); // estado de la cuenta
 
-            // Procesar movimientos de la cuenta
-            var movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
-                cuenta.getNumerocuenta(), fechaInicio, fechaFin);
+                // Obtener y ordenar movimientos de forma descendente por fecha y hora
+                var movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
+                    cuenta.getNumerocuenta(), fechaInicio, fechaFin);
 
-            List<Map<String, Object>> movimientosInfo = movimientos.stream().map(mov -> {
-                Map<String, Object> movInfo = new HashMap<>();
-                movInfo.put("id", mov.getIdmovimiento());
-                movInfo.put("Monto", mov.getMontomovimiento().abs().toPlainString());
-                movInfo.put("Tipo", mov.getTipomovimiento().toString());
-                movInfo.put("Fecha", mov.getFechamovimiento().format(
-                    java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-                movInfo.put("Hora", mov.getHoramovimiento().format(
-                    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSSS")));
-                movInfo.put("Descripcion", mov.getMovimientodescripcion());
-                movInfo.put("Saldo Disponible", mov.getSaldodisponible().doubleValue());
-                return movInfo;
-            }).toList();
+                List<Map<String, Object>> movimientosInfo = movimientos.stream()
+                    .sorted((m1, m2) -> {
+                        int compareDate = m2.getFechamovimiento().compareTo(m1.getFechamovimiento());
+                        if (compareDate == 0) {
+                            return m2.getHoramovimiento().compareTo(m1.getHoramovimiento());
+                        }
+                        return compareDate;
+                    })
+                    .map(mov -> {
+                        Map<String, Object> movInfo = new HashMap<>();
+                        movInfo.put("id", mov.getIdmovimiento());
+                        movInfo.put("Monto", mov.getMontomovimiento().abs().toPlainString());
+                        movInfo.put("Tipo", mov.getTipomovimiento().toString());
+                        movInfo.put("Fecha", mov.getFechamovimiento().format(
+                            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                        movInfo.put("Hora", mov.getHoramovimiento().format(
+                            java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSSS")));
+                        movInfo.put("Descripcion", mov.getMovimientodescripcion());
+                        movInfo.put("Saldo Disponible", mov.getSaldodisponible().doubleValue()); // saldo disponible después del movimiento
+                        return movInfo;
+                    })
+                    .toList();
 
-            cuentaInfo.put("Movimientos", movimientosInfo);
-            return cuentaInfo;
-        }).toList();
+                cuentaInfo.put("Movimientos", movimientosInfo);
+                return cuentaInfo;
+            })
+            .toList();
 
         reporte.put("Cuentas", cuentasInfo);
-
         return ResponseEntity.ok(reporte);
     }
 }
