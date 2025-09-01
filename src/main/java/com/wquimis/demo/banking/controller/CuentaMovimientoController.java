@@ -9,6 +9,7 @@ import com.wquimis.demo.banking.services.MovimientoService;
 import com.wquimis.demo.banking.services.ClienteService;
 import com.wquimis.demo.banking.utils.DtoConverter;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,6 +23,8 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Gestión de Cuentas y Movimientos", description = "APIs para gestionar cuentas y movimientos")
+
 public class CuentaMovimientoController {
 
     @Autowired
