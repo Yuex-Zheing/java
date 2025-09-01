@@ -9,6 +9,5 @@ import java.util.List;
 @Repository
 public interface MovimientoRepository extends JpaRepository<Movimiento, Long> {
     List<Movimiento> findByCuentaNumerocuenta(Integer numeroCuenta);
-    List<Movimiento> findByCuentaNumerocuentaAndFechamovimientoBetween(
-        Integer numeroCuenta, LocalDate fechaInicio, LocalDate fechaFin);
+    List<Movimiento> findByCuentaNumerocuentaAndFechamovimientoBetween(Integer numeroCuenta, LocalDate fechaInicio, LocalDate fechaFin);
 }

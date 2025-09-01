@@ -107,33 +107,47 @@ public class CuentaMovimientoController {
         List<Cuenta> cuentas = cuentaService.findByIdentificacionPersona(identificacionCliente);
 
         Map<String, Object> reporte = new HashMap<>();
-        reporte.put("fechaReporte", LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        reporte.put("FechaReporte", LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
 
-        Map<String, Object> clienteInfo = new HashMap<>();
+        Map<String, String> clienteInfo = new HashMap<>();
         clienteInfo.put("nombres", cliente.getPersona().getNombres());
         clienteInfo.put("identificacion", cliente.getPersona().getIdentificacionpersona());
-        reporte.put("cliente", clienteInfo);
+        reporte.put("Cliente", clienteInfo);
 
-        var cuentasInfo = cuentas.stream().map(cuenta -> {
+        List<Map<String, Object>> cuentasInfo = cuentas.stream().map(cuenta -> {
             Map<String, Object> cuentaInfo = new HashMap<>();
-            cuentaInfo.put("numero", cuenta.getNumerocuenta());
-            cuentaInfo.put("fechaCreacion", cuenta.getFechacreacion().toLocalDate().format(
+            cuentaInfo.put("Numero", cuenta.getNumerocuenta().toString());
+            cuentaInfo.put("FechaCreacion", cuenta.getFechacreacion().toLocalDate().format(
                 java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-            cuentaInfo.put("tipoCuenta", cuenta.getTipocuenta());
-            cuentaInfo.put("saldoInicial", cuenta.getSaldoinicial());
-            cuentaInfo.put("saldoDisponible", cuenta.getSaldoinicial());
-            cuentaInfo.put("estado", cuenta.getEstado() ? "ACTIVA" : "INACTIVA");
+            cuentaInfo.put("TipoCuenta", cuenta.getTipocuenta().toString());
+            cuentaInfo.put("SaldoInicial", cuenta.getSaldoinicial().toString());
+            cuentaInfo.put("Estado", cuenta.getEstado() ? "ACTIVA" : "INACTIVA");
 
             var movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
                 cuenta.getNumerocuenta(), fechaInicio, fechaFin);
-            cuentaInfo.put("movimientos", movimientos);
+
+            List<Map<String, Object>> movimientosInfo = movimientos.stream().map(mov -> {
+                Map<String, Object> movInfo = new HashMap<>();
+                movInfo.put("id", mov.getIdmovimiento());
+                movInfo.put("Fecha", mov.getFechamovimiento().format(
+                    java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                movInfo.put("Hora", mov.getHoramovimiento().format(
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS")));
+                movInfo.put("Tipo", mov.getTipomovimiento().toString());
+                movInfo.put("Monto", mov.getMontomovimiento().abs().toString());
+                movInfo.put("Saldo Disponible", mov.getSaldodisponible().toString());
+                movInfo.put("Descripcion", mov.getMovimientodescripcion());
+                return movInfo;
+            }).toList();
+
+            cuentaInfo.put("Movimientos", movimientosInfo);
+            cuentaInfo.put("SaldoDisponible", cuenta.getSaldoinicial().toString());
 
             return cuentaInfo;
-        reporte.put("cuentas", cuentasInfo);
+        }).toList();
+
+        reporte.put("Cuentas", cuentasInfo);
 
         return ResponseEntity.ok(reporte);
     }
-                movInfo.put("Tipo", mov.getTipomovimiento().toString());
-                movInfo.put("Monto", mov.getMontomovimiento().abs().toString());
-
-                movInfo.put("Descripcion", mov.getMovimientodescripcion());
+}

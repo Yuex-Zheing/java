@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 public class ClienteDTO {
+    private Long id;
+    private Long personaId;
     @NotBlank(message = "La identificación de la persona es requerida")
     @Size(max = 10, message = "La identificación debe tener máximo 10 caracteres")
     private String identificacionPersona;

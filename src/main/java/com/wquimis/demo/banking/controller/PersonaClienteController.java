@@ -8,6 +8,9 @@ import com.wquimis.demo.banking.services.PersonaService;
 import com.wquimis.demo.banking.services.ClienteService;
 import com.wquimis.demo.banking.utils.DtoConverter;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +21,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Gestión de Personas y Clientes", description = "APIs para gestionar personas y clientes")
 public class PersonaClienteController {
 
     @Autowired
@@ -26,81 +30,140 @@ public class PersonaClienteController {
     @Autowired
     private ClienteService clienteService;
 
-    @Autowired
-    private DtoConverter dtoConverter;
-
-    // Endpoints para Persona
+    // Endpoints para Personas
+    @Operation(summary = "Obtener todas las personas")
     @GetMapping("/personas")
     public ResponseEntity<List<PersonaDTO>> getAllPersonas() {
-        List<PersonaDTO> personas = personaService.findAll().stream()
-            .map(dtoConverter::toDto)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(personas);
+        List<Persona> personas = personaService.findAll();
+        List<PersonaDTO> personasDTO = personas.stream()
+                .map(DtoConverter::toPersonaDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(personasDTO);
     }
 
+    @Operation(summary = "Obtener una persona por ID")
     @GetMapping("/personas/{id}")
-    public ResponseEntity<PersonaDTO> getPersonaById(@PathVariable Long id) {
-        return ResponseEntity.ok(dtoConverter.toDto(personaService.findById(id)));
+    public ResponseEntity<PersonaDTO> getPersonaById(
+            @Parameter(description = "ID de la persona") @PathVariable Long id) {
+        Persona persona = personaService.findById(id);
+        if (persona != null) {
+            return ResponseEntity.ok(DtoConverter.toPersonaDTO(persona));
+        }
+        return ResponseEntity.notFound().build();
     }
 
-    @GetMapping("/personas/identificacion/{identificacion}")
-    public ResponseEntity<PersonaDTO> getPersonaByIdentificacion(@PathVariable String identificacion) {
-        return ResponseEntity.ok(dtoConverter.toDto(personaService.findByIdentificacion(identificacion)));
-    }
-
+    @Operation(summary = "Crear una nueva persona")
     @PostMapping("/personas")
-    public ResponseEntity<PersonaDTO> createPersona(@Valid @RequestBody PersonaDTO personaDto) {
-        Persona persona = dtoConverter.toEntity(personaDto);
-        return ResponseEntity.ok(dtoConverter.toDto(personaService.save(persona)));
+    public ResponseEntity<PersonaDTO> createPersona(
+            @Parameter(description = "Datos de la persona") @Valid @RequestBody PersonaDTO personaDTO) {
+        Persona persona = DtoConverter.toPersona(personaDTO);
+        Persona savedPersona = personaService.save(persona);
+        return ResponseEntity.ok(DtoConverter.toPersonaDTO(savedPersona));
     }
 
+    @Operation(summary = "Actualizar una persona existente")
     @PutMapping("/personas/{id}")
-    public ResponseEntity<PersonaDTO> updatePersona(@PathVariable Long id, @Valid @RequestBody PersonaDTO personaDto) {
-        Persona persona = dtoConverter.toEntity(personaDto);
-        return ResponseEntity.ok(dtoConverter.toDto(personaService.update(id, persona)));
+    public ResponseEntity<PersonaDTO> updatePersona(
+            @Parameter(description = "ID de la persona") @PathVariable Long id,
+            @Parameter(description = "Datos actualizados de la persona") @Valid @RequestBody PersonaDTO personaDTO) {
+        Persona existingPersona = personaService.findById(id);
+        if (existingPersona == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Persona persona = DtoConverter.toPersona(personaDTO);
+        persona.setIdpersona(id);
+        Persona updatedPersona = personaService.save(persona);
+        return ResponseEntity.ok(DtoConverter.toPersonaDTO(updatedPersona));
     }
 
+    @Operation(summary = "Eliminar una persona")
     @DeleteMapping("/personas/{id}")
-    public ResponseEntity<Void> deletePersona(@PathVariable Long id) {
+    public ResponseEntity<Void> deletePersona(
+            @Parameter(description = "ID de la persona") @PathVariable Long id) {
+        Persona persona = personaService.findById(id);
+        if (persona == null) {
+            return ResponseEntity.notFound().build();
+        }
         personaService.delete(id);
         return ResponseEntity.ok().build();
     }
 
-    // Endpoints para Cliente
+    // Endpoints para Clientes
+    @Operation(summary = "Obtener todos los clientes")
     @GetMapping("/clientes")
     public ResponseEntity<List<ClienteDTO>> getAllClientes() {
-        List<ClienteDTO> clientes = clienteService.findAll().stream()
-            .map(dtoConverter::toDto)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(clientes);
+        List<Cliente> clientes = clienteService.findAll();
+        List<ClienteDTO> clientesDTO = clientes.stream()
+                .map(DtoConverter::toClienteDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(clientesDTO);
     }
 
+    @Operation(summary = "Obtener un cliente por ID")
     @GetMapping("/clientes/{id}")
-    public ResponseEntity<ClienteDTO> getClienteById(@PathVariable Long id) {
-        return ResponseEntity.ok(dtoConverter.toDto(clienteService.findById(id)));
-    }
-
-    @GetMapping("/clientes/identificacion/{identificacion}")
-    public ResponseEntity<ClienteDTO> getClienteByIdentificacion(@PathVariable String identificacion) {
-        return ResponseEntity.ok(dtoConverter.toDto(clienteService.findByIdentificacionPersona(identificacion)));
-    }
-
-    @PostMapping("/clientes")
-    public ResponseEntity<ClienteDTO> createCliente(@Valid @RequestBody ClienteDTO clienteDto) {
-        Persona persona = personaService.findByIdentificacion(clienteDto.getIdentificacionPersona());
-        Cliente cliente = dtoConverter.toEntity(clienteDto, persona);
-        return ResponseEntity.ok(dtoConverter.toDto(clienteService.save(cliente)));
-    }
-
-    @PutMapping("/clientes/{id}")
-    public ResponseEntity<ClienteDTO> updateCliente(@PathVariable Long id, @Valid @RequestBody ClienteDTO clienteDto) {
+    public ResponseEntity<ClienteDTO> getClienteById(
+            @Parameter(description = "ID del cliente") @PathVariable Long id) {
         Cliente cliente = clienteService.findById(id);
-        Cliente clienteActualizado = dtoConverter.toEntity(clienteDto, cliente.getPersona());
-        return ResponseEntity.ok(dtoConverter.toDto(clienteService.update(id, clienteActualizado)));
+        if (cliente != null) {
+            return ResponseEntity.ok(DtoConverter.toClienteDTO(cliente));
+        }
+        return ResponseEntity.notFound().build();
     }
 
+    @Operation(summary = "Crear un nuevo cliente")
+    @PostMapping("/clientes")
+    public ResponseEntity<ClienteDTO> createCliente(
+            @Parameter(description = "Datos del cliente") @Valid @RequestBody ClienteDTO clienteDTO) {
+        // Verificar que exista la persona
+        Persona persona = personaService.findById(clienteDTO.getPersonaId());
+        if (persona == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Cliente cliente = DtoConverter.toCliente(clienteDTO);
+        cliente.setPersona(persona);
+        cliente.setEstado(true);
+        Cliente savedCliente = clienteService.save(cliente);
+        return ResponseEntity.ok(DtoConverter.toClienteDTO(savedCliente));
+    }
+
+    @Operation(summary = "Actualizar un cliente existente")
+    @PutMapping("/clientes/{id}")
+    public ResponseEntity<ClienteDTO> updateCliente(
+            @Parameter(description = "ID del cliente") @PathVariable Long id,
+            @Parameter(description = "Datos actualizados del cliente") @Valid @RequestBody ClienteDTO clienteDTO) {
+        Cliente existingCliente = clienteService.findById(id);
+        if (existingCliente == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Verificar que exista la persona si se está actualizando
+        if (clienteDTO.getPersonaId() != null) {
+            Persona persona = personaService.findById(clienteDTO.getPersonaId());
+            if (persona == null) {
+                return ResponseEntity.badRequest().build();
+            }
+            existingCliente.setPersona(persona);
+        }
+
+        existingCliente.setNombreusuario(clienteDTO.getNombreUsuario());
+        if (clienteDTO.getContrasena() != null && !clienteDTO.getContrasena().isEmpty()) {
+            existingCliente.setContrasena(clienteDTO.getContrasena());
+        }
+
+        Cliente updatedCliente = clienteService.save(existingCliente);
+        return ResponseEntity.ok(DtoConverter.toClienteDTO(updatedCliente));
+    }
+
+    @Operation(summary = "Eliminar un cliente")
     @DeleteMapping("/clientes/{id}")
-    public ResponseEntity<Void> deleteCliente(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteCliente(
+            @Parameter(description = "ID del cliente") @PathVariable Long id) {
+        Cliente cliente = clienteService.findById(id);
+        if (cliente == null) {
+            return ResponseEntity.notFound().build();
+        }
         clienteService.delete(id);
         return ResponseEntity.ok().build();
     }

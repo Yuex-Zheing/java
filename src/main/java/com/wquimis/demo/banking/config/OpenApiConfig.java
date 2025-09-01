@@ -10,14 +10,15 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI bankingOpenAPI() {
+    public OpenAPI customOpenAPI() {
         return new OpenAPI()
-            .info(new Info()
-                .title("Banking System API")
-                .description("API REST para sistema bancario con gestión de clientes, cuentas y movimientos")
-                .version("1.0")
-                .contact(new Contact()
-                    .name("William Quimis")
-                    .email("wquimis@example.com")));
+                .info(new Info()
+                        .title("Banking System API")
+                        .version("1.0")
+                        .description("API REST para sistema bancario con gestión de clientes, cuentas y movimientos")
+                        .contact(new Contact()
+                                .name("William Quimis")
+                                .email("wquimis@example.com")
+                                .url("https://example.com")));
     }
 }

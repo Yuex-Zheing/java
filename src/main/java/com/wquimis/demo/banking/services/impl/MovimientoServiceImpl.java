@@ -25,6 +25,31 @@ public class MovimientoServiceImpl implements MovimientoService {
     private CuentaService cuentaService;
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Movimiento> findAll() {
+        return movimientoRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Movimiento findById(Long id) {
+        return movimientoRepository.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Movimiento no encontrado con ID: " + id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Movimiento> findByNumeroCuenta(Integer numeroCuenta) {
+        return movimientoRepository.findByCuentaNumerocuenta(numeroCuenta);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Movimiento> findByNumeroCuentaAndFechaBetween(Integer numeroCuenta, LocalDate fechaInicio, LocalDate fechaFin) {
+        return movimientoRepository.findByCuentaNumerocuentaAndFechamovimientoBetween(numeroCuenta, fechaInicio, fechaFin);
+    }
+
+    @Override
     @Transactional
     public Movimiento realizarMovimiento(Movimiento movimiento) {
         if (movimiento.getMontomovimiento() == null || movimiento.getMontomovimiento().compareTo(BigDecimal.ZERO) == 0) {
@@ -39,7 +64,6 @@ public class MovimientoServiceImpl implements MovimientoService {
 
         BigDecimal saldoActual = cuenta.getSaldoinicial();
 
-        // Validar que el monto sea positivo para depósitos y negativo para retiros
         if (movimiento.getTipomovimiento() == Movimiento.TipoMovimiento.RETIRO) {
             BigDecimal montoRetiro = movimiento.getMontomovimiento().abs();
             if (saldoActual.compareTo(montoRetiro) < 0) {
@@ -47,12 +71,12 @@ public class MovimientoServiceImpl implements MovimientoService {
             }
             saldoActual = saldoActual.subtract(montoRetiro);
             movimiento.setMovimientodescripcion("Retiro en efectivo por " + montoRetiro.toString());
-            movimiento.setMontomovimiento(montoRetiro.negate()); // Guardar como negativo
+            movimiento.setMontomovimiento(montoRetiro.negate());
         } else {
             BigDecimal montoDeposito = movimiento.getMontomovimiento().abs();
             saldoActual = saldoActual.add(montoDeposito);
             movimiento.setMovimientodescripcion("Depósito en efectivo por " + montoDeposito.toString());
-            movimiento.setMontomovimiento(montoDeposito); // Guardar como positivo
+            movimiento.setMontomovimiento(montoDeposito);
         }
 
         movimiento.setSaldodisponible(saldoActual);
@@ -60,7 +84,6 @@ public class MovimientoServiceImpl implements MovimientoService {
         movimiento.setHoramovimiento(LocalTime.now());
         movimiento.setEstado(true);
 
-        // Actualizar saldo de la cuenta
         cuenta.setSaldoinicial(saldoActual);
         cuentaService.update(cuenta.getNumerocuenta(), cuenta);
 
@@ -68,24 +91,10 @@ public class MovimientoServiceImpl implements MovimientoService {
     }
 
     @Override
-    public List<Movimiento> findByCuenta(String numeroCuenta) {
-        return movimientoRepository.findByCuenta_NumeroCuenta(numeroCuenta);
-    }
-
-    @Override
-    public Movimiento findById(Long id) {
-        return movimientoRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Movimiento no encontrado"));
-    }
-
-    @Override
+    @Transactional
     public void delete(Long id) {
-        movimientoRepository.deleteById(id);
-    }
-
-    @Override
-    public Movimiento update(String numeroCuenta, Movimiento movimiento) {
-        // Lógica para actualizar un movimiento
-        return null;
+        Movimiento movimiento = findById(id);
+        movimiento.setEstado(false);
+        movimientoRepository.save(movimiento);
     }
 }
