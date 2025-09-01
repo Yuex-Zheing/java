@@ -4,6 +4,9 @@ import com.wquimis.demo.banking.dto.*;
 import com.wquimis.demo.banking.entities.*;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.math.BigDecimal;
 
 @Component
 public class DtoConverter {
@@ -93,8 +96,16 @@ public class DtoConverter {
     public Movimiento toEntity(MovimientoDTO dto, Cuenta cuenta) {
         Movimiento movimiento = new Movimiento();
         movimiento.setCuenta(cuenta);
-        movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(dto.getTipoMovimiento()));
-        movimiento.setMontomovimiento(dto.getMonto());
+        movimiento.setFechamovimiento(LocalDate.now());
+        movimiento.setHoramovimiento(LocalTime.now());
+        movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(dto.getTipo()));
+        // El valor será positivo para depósitos y negativo para retiros
+        BigDecimal monto = new BigDecimal(dto.getValor());
+        if (dto.getTipo().equals("RETIRO")) {
+            monto = monto.negate();
+        }
+        movimiento.setMontomovimiento(monto);
+        movimiento.setMovimientodescripcion(dto.getDescripcion());
         movimiento.setEstado(true);
         return movimiento;
     }
@@ -128,9 +139,20 @@ public class DtoConverter {
 
     public MovimientoDTO toDto(Movimiento movimiento) {
         MovimientoDTO dto = new MovimientoDTO();
-        dto.setNumeroCuenta(movimiento.getCuenta().getNumerocuenta());
-        dto.setTipoMovimiento(movimiento.getTipomovimiento().toString());
-        dto.setMonto(movimiento.getMontomovimiento().abs());
+        dto.setId(movimiento.getIdmovimiento());
+        dto.setFecha(movimiento.getFechamovimiento().format(
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        dto.setHora(movimiento.getHoramovimiento().format(
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS")));
+        dto.setDescripcion(movimiento.getMovimientodescripcion());
+        dto.setTipo(movimiento.getTipomovimiento().toString());
+        dto.setValor(movimiento.getMontomovimiento().abs().toPlainString());
+        dto.setSaldo(movimiento.getSaldodisponible());
+        
+        // Campo interno
+        if (movimiento.getCuenta() != null) {
+            dto.setNumeroCuenta(movimiento.getCuenta().getNumerocuenta());
+        }
         return dto;
     }
 }
