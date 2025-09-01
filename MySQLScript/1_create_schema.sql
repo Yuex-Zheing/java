@@ -5,7 +5,7 @@ USE bankingdb;
 
 -- Tabla Personas
 CREATE TABLE personas (
-    idpersona BIGINT(8) AUTO_INCREMENT PRIMARY KEY,
+    idpersona BIGINT AUTO_INCREMENT PRIMARY KEY,
     identificacionpersona VARCHAR(10) NOT NULL UNIQUE,
     nombres VARCHAR(150) NOT NULL,
     genero CHAR(1) NOT NULL,
@@ -17,8 +17,8 @@ CREATE TABLE personas (
 
 -- Tabla Clientes
 CREATE TABLE clientes (
-    idcliente BIGINT(8) AUTO_INCREMENT PRIMARY KEY,
-    idpersona BIGINT(8) NOT NULL,
+    idcliente BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idpersona BIGINT NOT NULL,
     nombreusuario VARCHAR(50) NOT NULL UNIQUE,
     contrasena VARCHAR(100) NOT NULL,
     estado BOOLEAN DEFAULT true,
@@ -27,10 +27,11 @@ CREATE TABLE clientes (
 
 -- Tabla Cuentas
 CREATE TABLE cuentas (
-    numerocuenta INT(6) PRIMARY KEY,
-    idcliente BIGINT(8) NOT NULL,
+    numerocuenta INT PRIMARY KEY,
+    idcliente BIGINT NOT NULL,
     tipocuenta ENUM('AHORROS', 'CORRIENTE') NOT NULL,
     saldoinicial DECIMAL(10,4) NOT NULL,
+    saldodisponible DECIMAL(10,4),
     estado BOOLEAN DEFAULT true,
     fechacreacion DATETIME NOT NULL,
     fechacierre DATETIME,
@@ -39,8 +40,8 @@ CREATE TABLE cuentas (
 
 -- Tabla Movimientos
 CREATE TABLE movimientos (
-    idmovimiento BIGINT(8) AUTO_INCREMENT PRIMARY KEY,
-    numerocuenta INT(6) NOT NULL,
+    idmovimiento BIGINT AUTO_INCREMENT PRIMARY KEY,
+    numerocuenta INT NOT NULL,
     estado BOOLEAN DEFAULT true,
     fechamovimiento DATE NOT NULL,
     horamovimiento TIME(3) NOT NULL,

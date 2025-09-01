@@ -37,6 +37,17 @@ public class Cuenta {
     @OneToMany(mappedBy = "cuenta", cascade = CascadeType.ALL)
     private List<Movimiento> movimientos;
 
+    @Column(precision = 10, scale = 4)
+    private BigDecimal saldodisponible;
+
+    public BigDecimal getSaldodisponible() {
+        return saldodisponible != null ? saldodisponible : saldoinicial;
+    }
+
+    public void setSaldodisponible(BigDecimal saldodisponible) {
+        this.saldodisponible = saldodisponible;
+    }
+
     public enum TipoCuenta {
         AHORROS, CORRIENTE
     }
@@ -51,6 +62,9 @@ public class Cuenta {
         }
         if (saldoinicial == null) {
             saldoinicial = BigDecimal.ZERO;
+        }
+        if (saldodisponible == null) {
+            saldodisponible = saldoinicial;
         }
     }
 

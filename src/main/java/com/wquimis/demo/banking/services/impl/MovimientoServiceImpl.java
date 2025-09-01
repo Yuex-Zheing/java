@@ -85,6 +85,7 @@ public class MovimientoServiceImpl implements MovimientoService {
         movimiento.setEstado(true);
 
         cuenta.setSaldoinicial(saldoActual);
+        cuenta.setSaldodisponible(saldoActual);
         cuentaService.update(cuenta.getNumerocuenta(), cuenta);
 
         return movimientoRepository.save(movimiento);

@@ -19,12 +19,13 @@ SELECT idpersona, CONCAT('user', identificacionpersona), CONCAT('pass', identifi
 FROM personas;
 
 -- Datos de ejemplo para cuentas (dos por cliente: ahorro y corriente)
-INSERT INTO cuentas (numerocuenta, idcliente, tipocuenta, saldoinicial, estado, fechacreacion)
+INSERT INTO cuentas (numerocuenta, idcliente, tipocuenta, saldoinicial, saldodisponible, estado, fechacreacion)
 SELECT 
     100000 + ROW_NUMBER() OVER (ORDER BY c.idcliente) as numerocuenta,
     c.idcliente,
     'AHORROS',
-    1000.0000 * (ROW_NUMBER() OVER (ORDER BY c.idcliente)),
+    1000.0000 * (ROW_NUMBER() OVER (ORDER BY c.idcliente)) as saldoinicial,
+    1000.0000 * (ROW_NUMBER() OVER (ORDER BY c.idcliente)) as saldodisponible,
     true,
     NOW()
 FROM clientes c
@@ -33,7 +34,8 @@ SELECT
     200000 + ROW_NUMBER() OVER (ORDER BY c.idcliente) as numerocuenta,
     c.idcliente,
     'CORRIENTE',
-    2000.0000 * (ROW_NUMBER() OVER (ORDER BY c.idcliente)),
+    2000.0000 * (ROW_NUMBER() OVER (ORDER BY c.idcliente)) as saldoinicial,
+    2000.0000 * (ROW_NUMBER() OVER (ORDER BY c.idcliente)) as saldodisponible,
     true,
     NOW()
 FROM clientes c;
@@ -90,11 +92,14 @@ ORDER BY c.numerocuenta, ms.mov_num;
 -- Actualizar saldos disponibles
 SET SQL_SAFE_UPDATES = 0;
 
+-- Actualizar saldos en movimientos y cuenta
 WITH RECURSIVE saldos_acumulados AS (
     SELECT 
         m.idmovimiento,
         m.numerocuenta,
         m.montomovimiento,
+        m.fechamovimiento,
+        m.horamovimiento,
         ROW_NUMBER() OVER (PARTITION BY m.numerocuenta ORDER BY m.fechamovimiento, m.horamovimiento, m.idmovimiento) as orden,
         c.saldoinicial as saldo_base
     FROM movimientos m
@@ -104,6 +109,7 @@ UPDATE movimientos m
 INNER JOIN (
     SELECT 
         sa1.idmovimiento,
+        sa1.numerocuenta,
         sa1.saldo_base + COALESCE(
             (
                 SELECT SUM(sa2.montomovimiento)
@@ -115,8 +121,28 @@ INNER JOIN (
         ) as saldo_final
     FROM saldos_acumulados sa1
 ) calc ON m.idmovimiento = calc.idmovimiento
-SET m.saldodisponible = calc.saldo_final
-WHERE m.idmovimiento > 0;
+SET m.saldodisponible = calc.saldo_final;
+
+-- Actualizar saldo disponible en cuentas con el último saldo calculado
+UPDATE cuentas c
+INNER JOIN (
+    SELECT 
+        numerocuenta,
+        saldodisponible as ultimo_saldo
+    FROM movimientos m1
+    WHERE fechamovimiento = (
+        SELECT MAX(fechamovimiento)
+        FROM movimientos m2
+        WHERE m2.numerocuenta = m1.numerocuenta
+    )
+    AND horamovimiento = (
+        SELECT MAX(horamovimiento)
+        FROM movimientos m3
+        WHERE m3.numerocuenta = m1.numerocuenta
+        AND m3.fechamovimiento = m1.fechamovimiento
+    )
+) ultimos_movimientos ON c.numerocuenta = ultimos_movimientos.numerocuenta
+SET c.saldodisponible = ultimos_movimientos.ultimo_saldo;
 
 SET SQL_SAFE_UPDATES = 1;
 

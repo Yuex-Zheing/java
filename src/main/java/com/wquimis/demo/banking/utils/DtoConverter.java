@@ -27,6 +27,7 @@ public class DtoConverter {
         dto.setContrasena(cliente.getContrasena());
         if (cliente.getPersona() != null) {
             dto.setPersonaId(cliente.getPersona().getIdpersona());
+            dto.setIdentificacionPersona(cliente.getPersona().getIdentificacionpersona());
         }
         return dto;
     }
