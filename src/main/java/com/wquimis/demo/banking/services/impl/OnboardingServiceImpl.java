@@ -1,8 +1,6 @@
 package com.wquimis.demo.banking.services.impl;
 
-import com.wquimis.demo.banking.dto.CreateClienteDTO;
 import com.wquimis.demo.banking.dto.OnboardingRequestDTO;
-import com.wquimis.demo.banking.dto.PersonaDTO;
 import com.wquimis.demo.banking.entities.Cliente;
 import com.wquimis.demo.banking.entities.Cuenta;
 import com.wquimis.demo.banking.entities.Persona;
@@ -36,17 +34,22 @@ public class OnboardingServiceImpl implements OnboardingService {
     @Override
     @Transactional
     public Cuenta procesarOnboarding(OnboardingRequestDTO request) throws OnboardingException {
+        // Validaciones iniciales
+        if (request == null) {
+            throw new OnboardingException("ERR_ONB", "Solicitud de onboarding nula", "La solicitud no puede ser nula");
+        }
+
+        if (request.getPersona() == null) {
+            throw new OnboardingException("ERR_PERSONA", "Los datos de la persona son requeridos", "Debe proporcionar los datos de la persona");
+        }
+        if (request.getCliente() == null) {
+            throw new OnboardingException("ERR_CLIENTE", "Los datos del cliente son requeridos", "Debe proporcionar los datos del cliente");
+        }
+        if (request.getCuenta() == null) {
+            throw new OnboardingException("ERR_CUENTA", "Los datos de la cuenta son requeridos", "Debe proporcionar los datos de la cuenta");
+        }
+
         try {
-            // Validaciones iniciales
-            if (request.getPersona() == null) {
-                throw new OnboardingException("PERSONA", "ERR_001", "Los datos de la persona son requeridos");
-            }
-            if (request.getCliente() == null) {
-                throw new OnboardingException("CLIENTE", "ERR_002", "Los datos del cliente son requeridos");
-            }
-            if (request.getCuenta() == null) {
-                throw new OnboardingException("CUENTA", "ERR_003", "Los datos de la cuenta son requeridos");
-            }
 
             // 1. Crear Persona
             Persona persona = new Persona();
@@ -103,7 +106,6 @@ public class OnboardingServiceImpl implements OnboardingService {
             } catch (Exception e) {
                 throw new OnboardingException("CUENTA", "ERR_007", "Error al crear la cuenta: " + e.getMessage());
             }
-
         } catch (Exception e) {
             throw new OnboardingException(
                 "ERR_ONB",
