@@ -40,6 +40,7 @@ services:
     environment:
       - MYSQL_DATABASE=bankingdb
       - MYSQL_USER=zheing
+      - MYSQL_ROOT_HOST=% 
       - MYSQL_PASSWORD=Pa$$w0rd
       - MYSQL_ROOT_PASSWORD=Pa$$w0rd
       - TZ=America/Guayaquil
@@ -55,10 +56,19 @@ services:
       timeout: 5s
       retries: 10
     deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
       resources:
         limits:
           memory: 650M
     command: --default-authentication-plugin=mysql_native_password
+             --innodb_buffer_pool_size=256M
+             --innodb_log_file_size=64M
+             --innodb_flush_method=O_DIRECT
+             --performance_schema=OFF
              --character-set-server=utf8mb4
              --collation-server=utf8mb4_unicode_ci
              --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
