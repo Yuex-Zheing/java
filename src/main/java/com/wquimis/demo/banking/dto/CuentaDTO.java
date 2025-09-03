@@ -22,4 +22,6 @@ public class CuentaDTO {
     @DecimalMin(value = "0.0", message = "El saldo inicial no puede ser negativo")
     @Digits(integer = 6, fraction = 4, message = "El saldo debe tener máximo 6 dígitos enteros y 4 decimales")
     private BigDecimal saldoInicial;
+
+    private Boolean estado;
 }

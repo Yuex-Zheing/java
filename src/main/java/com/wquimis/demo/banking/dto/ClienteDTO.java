@@ -18,7 +18,7 @@ public class ClienteDTO {
 
     @NotBlank(message = "La contraseña es requerida")
     @Size(min = 6, max = 100, message = "La contraseña debe tener entre 6 y 100 caracteres")
-    @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{6,}$",
-            message = "La contraseña debe contener al menos un número, una letra mayúscula, una minúscula y un carácter especial")
     private String contrasena;
+
+    private Boolean estado;
 }

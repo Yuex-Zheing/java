@@ -1,6 +1,7 @@
 package com.wquimis.demo.banking.controller;
 
 import com.wquimis.demo.banking.dto.CuentaDTO;
+import com.wquimis.demo.banking.dto.ErrorDTO;
 import com.wquimis.demo.banking.dto.MovimientoDTO;
 import com.wquimis.demo.banking.entities.Cliente;
 import com.wquimis.demo.banking.entities.Cuenta;
@@ -9,6 +10,7 @@ import com.wquimis.demo.banking.services.ClienteService;
 import com.wquimis.demo.banking.services.CuentaService;
 import com.wquimis.demo.banking.services.MovimientoService;
 import com.wquimis.demo.banking.utils.DtoConverter;
+import org.springframework.http.HttpStatus;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -47,24 +49,41 @@ public class CuentaMovimientoController {
     private DtoConverter dtoConverter;
 
     // Endpoints para Cuentas
-    @Operation(summary = "Obtener todas las cuentas")
+    @Operation(summary = "Obtener todas las cuentas activas")
     @GetMapping("/cuentas")
-    public ResponseEntity<List<CuentaDTO>> getAllCuentas() {
+    public ResponseEntity<?> getAllCuentas() {
         try {
             List<CuentaDTO> cuentas = cuentaService.findAll().stream()
+                    .filter(c -> Boolean.TRUE.equals(c.getEstado()))
                     .map(dtoConverter::toDto)
                     .collect(Collectors.toList());
             return ResponseEntity.ok(cuentas);
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999", 
+                    e.getMessage(),
+                    "Ha ocurrido un error al obtener las cuentas"));
         }
     }
 
     @Operation(summary = "Obtener cuenta por número")
     @GetMapping("/cuentas/{numeroCuenta}")
-    public ResponseEntity<CuentaDTO> getCuentaByNumero(@PathVariable Integer numeroCuenta) {
-        return ResponseEntity.ok(dtoConverter.toDto(cuentaService.findByNumeroCuenta(numeroCuenta)));
+    public ResponseEntity<?> getCuentaByNumero(@PathVariable Integer numeroCuenta) {
+        try {
+            Cuenta cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
+            if (cuenta == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ErrorDTO.of("ERR_001",
+                        "Cuenta no encontrada con número: " + numeroCuenta,
+                        "La cuenta solicitada no existe"));
+            }
+            return ResponseEntity.ok(dtoConverter.toDto(cuenta));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al obtener la cuenta"));
+        }
     }
 
     @Operation(summary = "Obtener cuentas por cliente")
@@ -96,9 +115,25 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Eliminar cuenta")
     @DeleteMapping("/cuentas/{numeroCuenta}")
-    public ResponseEntity<Void> deleteCuenta(@PathVariable Integer numeroCuenta) {
-        cuentaService.delete(numeroCuenta);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<?> deleteCuenta(@PathVariable Integer numeroCuenta) {
+        try {
+            Cuenta cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
+            if (cuenta == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ErrorDTO.of("ERR_001",
+                        "Cuenta no encontrada con número: " + numeroCuenta,
+                        "La cuenta que intenta eliminar no existe"));
+            }
+            cuentaService.delete(numeroCuenta);
+            return ResponseEntity.ok(ErrorDTO.of("SUCCESS",
+                "Cuenta eliminada correctamente",
+                "La cuenta ha sido eliminada exitosamente"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al eliminar la cuenta"));
+        }
     }
 
     // Endpoints para Movimientos
@@ -132,9 +167,25 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Eliminar movimiento")
     @DeleteMapping("/movimientos/{idMovimiento}")
-    public ResponseEntity<Void> deleteMovimiento(@PathVariable Long idMovimiento) {
-        movimientoService.delete(idMovimiento);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<?> deleteMovimiento(@PathVariable Long idMovimiento) {
+        try {
+            Movimiento movimiento = movimientoService.findById(idMovimiento);
+            if (movimiento == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ErrorDTO.of("ERR_001",
+                        "Movimiento no encontrado con ID: " + idMovimiento,
+                        "El movimiento que intenta eliminar no existe"));
+            }
+            movimientoService.delete(idMovimiento);
+            return ResponseEntity.ok(ErrorDTO.of("SUCCESS",
+                "Movimiento eliminado correctamente",
+                "El movimiento ha sido eliminado y el saldo ha sido ajustado exitosamente"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al eliminar el movimiento"));
+        }
     }
 
     @Operation(summary = "Obtener movimientos por cuenta")

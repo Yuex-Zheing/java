@@ -11,15 +11,26 @@ import java.math.BigDecimal;
 @Component
 public class DtoConverter {
 
+    public static Persona updatePersonaFromDTO(PersonaUpdateDTO dto, Persona persona) {
+        persona.setNombres(dto.getNombres());
+        persona.setGenero(dto.getGenero());
+        persona.setEdad(dto.getEdad());
+        persona.setDireccion(dto.getDireccion());
+        persona.setTelefono(dto.getTelefono());
+        persona.setEstado(dto.getEstado());
+        return persona;
+    }
+
     public static PersonaDTO toPersonaDTO(Persona persona) {
         PersonaDTO dto = new PersonaDTO();
         dto.setId(persona.getIdpersona());
-        dto.setIdentificacion(persona.getIdentificacionpersona());
+        dto.setIdentificacionpersona(persona.getIdentificacionpersona());
         dto.setNombres(persona.getNombres());
         dto.setGenero(persona.getGenero());
         dto.setEdad(persona.getEdad());
         dto.setDireccion(persona.getDireccion());
         dto.setTelefono(persona.getTelefono());
+        dto.setEstado(persona.getEstado());
         return dto;
     }
 
@@ -40,13 +51,13 @@ public class DtoConverter {
         if (dto.getId() != null) {
             persona.setIdpersona(dto.getId());
         }
-        persona.setIdentificacionpersona(dto.getIdentificacion());
+        persona.setIdentificacionpersona(dto.getIdentificacionpersona());
         persona.setNombres(dto.getNombres());
         persona.setGenero(dto.getGenero());
         persona.setEdad(dto.getEdad());
         persona.setDireccion(dto.getDireccion());
         persona.setTelefono(dto.getTelefono());
-        persona.setEstado(true);
+        persona.setEstado(dto.getEstado() != null ? dto.getEstado() : true);
         return persona;
     }
 
@@ -63,13 +74,13 @@ public class DtoConverter {
 
     public Persona toEntity(PersonaDTO dto) {
         Persona persona = new Persona();
-        persona.setIdentificacionpersona(dto.getIdentificacion());
+        persona.setIdentificacionpersona(dto.getIdentificacionpersona());
         persona.setNombres(dto.getNombres());
         persona.setGenero(dto.getGenero());
         persona.setEdad(dto.getEdad());
         persona.setDireccion(dto.getDireccion());
         persona.setTelefono(dto.getTelefono());
-        persona.setEstado(true);
+        persona.setEstado(dto.getEstado() != null ? dto.getEstado() : true);
         return persona;
     }
 
@@ -112,19 +123,27 @@ public class DtoConverter {
 
     public PersonaDTO toDto(Persona persona) {
         PersonaDTO dto = new PersonaDTO();
-        dto.setIdentificacion(persona.getIdentificacionpersona());
+        dto.setId(persona.getIdpersona());
+        dto.setIdentificacionpersona(persona.getIdentificacionpersona());
         dto.setNombres(persona.getNombres());
         dto.setGenero(persona.getGenero());
         dto.setEdad(persona.getEdad());
         dto.setDireccion(persona.getDireccion());
         dto.setTelefono(persona.getTelefono());
+        dto.setEstado(persona.getEstado());
         return dto;
     }
 
     public ClienteDTO toDto(Cliente cliente) {
         ClienteDTO dto = new ClienteDTO();
-        dto.setIdentificacionPersona(cliente.getPersona().getIdentificacionpersona());
+        dto.setId(cliente.getIdcliente());
+        if (cliente.getPersona() != null) {
+            dto.setPersonaId(cliente.getPersona().getIdpersona());
+            dto.setIdentificacionPersona(cliente.getPersona().getIdentificacionpersona());
+        }
         dto.setNombreUsuario(cliente.getNombreusuario());
+        dto.setContrasena(cliente.getContrasena());
+        dto.setEstado(cliente.getEstado());
         return dto;
     }
 
@@ -134,6 +153,7 @@ public class DtoConverter {
         dto.setIdCliente(cuenta.getCliente().getIdcliente());
         dto.setTipoCuenta(cuenta.getTipocuenta());
         dto.setSaldoInicial(cuenta.getSaldoinicial());
+        dto.setEstado(cuenta.getEstado());
         return dto;
     }
 

@@ -8,7 +8,7 @@ public class PersonaDTO {
     private Long id;
     @NotBlank(message = "La identificación es requerida")
     @Size(max = 10, message = "La identificación debe tener máximo 10 caracteres")
-    private String identificacion;
+    private String identificacionpersona;
 
     @NotBlank(message = "El nombre es requerido")
     @Size(max = 150, message = "El nombre debe tener máximo 150 caracteres")
@@ -17,6 +17,8 @@ public class PersonaDTO {
     @NotBlank(message = "El género es requerido")
     @Pattern(regexp = "^[MF]$", message = "El género debe ser M o F")
     private String genero;
+
+    private Boolean estado;
 
     @NotNull(message = "La edad es requerida")
     @Min(value = 0, message = "La edad debe ser mayor o igual a 0")

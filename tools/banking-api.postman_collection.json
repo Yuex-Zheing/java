@@ -9,7 +9,7 @@
       "name": "Personas",
       "item": [
         {
-          "name": "Listar Personas",
+          "name": "Listar Personas Activas",
           "request": {
             "method": "GET",
             "url": {
@@ -19,8 +19,18 @@
               "port": "8080",
               "path": ["api", "personas"]
             },
-            "description": "Obtiene la lista de todas las personas registradas"
-          }
+            "description": "Obtiene la lista de todas las personas activas"
+          },
+          "response": [
+            {
+              "name": "Respuesta Exitosa",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "[{\n  \"id\": 1,\n  \"identificacionpersona\": \"1234567890\",\n  \"nombres\": \"Juan Carlos Pérez\",\n  \"genero\": \"M\",\n  \"edad\": 35,\n  \"direccion\": \"Av. Principal 123\",\n  \"telefono\": \"0991234567\",\n  \"estado\": true\n}]"
+            }
+          ]
         },
         {
           "name": "Obtener Persona por ID",
@@ -53,7 +63,17 @@
               "path": ["api", "personas"]
             },
             "description": "Crea una nueva persona en el sistema"
-          }
+          },
+          "response": [
+            {
+              "name": "Error - Persona Existente",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"codigo\": \"ERR_002\",\n  \"mensajeTecnico\": \"Ya existe una persona con identificación: 1234567890\",\n  \"mensajeNegocio\": \"Ya existe una persona registrada con la identificación proporcionada\"\n}"
+            }
+          ]
         },
         {
           "name": "Actualizar Persona",
@@ -86,7 +106,17 @@
               "path": ["api", "personas", "1"]
             },
             "description": "Elimina una persona del sistema"
-          }
+          },
+          "response": [
+            {
+              "name": "Respuesta Exitosa",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"codigo\": \"SUCCESS\",\n  \"mensajeTecnico\": \"Persona eliminada correctamente\",\n  \"mensajeNegocio\": \"La persona ha sido eliminada exitosamente\"\n}"
+            }
+          ]
         }
       ]
     },
@@ -171,7 +201,17 @@
               "path": ["api", "clientes", "1"]
             },
             "description": "Elimina un cliente del sistema"
-          }
+          },
+          "response": [
+            {
+              "name": "Respuesta Exitosa",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"codigo\": \"SUCCESS\",\n  \"mensajeTecnico\": \"Cliente eliminado correctamente\",\n  \"mensajeNegocio\": \"El cliente ha sido eliminado exitosamente\"\n}"
+            }
+          ]
         }
       ]
     },
@@ -303,6 +343,14 @@
               "_postman_previewlanguage": "json",
               "header": [{"key": "Content-Type", "value": "application/json"}],
               "body": "{\n    \"id\": 1,\n    \"fechamovimiento\": \"02/09/2025\",\n    \"horamovimiento\": \"10:30:00.000\",\n    \"tipomovimiento\": \"DEPOSITO\",\n    \"montomovimiento\": 500.00,\n    \"movimientodescripcion\": \"Depósito inicial\",\n    \"saldodisponible\": 2500.00,\n    \"estado\": true\n}"
+            },
+            {
+              "name": "Error - Saldo Insuficiente",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"codigo\": \"ERR_003\",\n  \"mensajeTecnico\": \"Saldo no disponible: 2000.00\",\n  \"mensajeNegocio\": \"No hay saldo suficiente para realizar la operación\"\n}"
             }
           ]
         },
@@ -356,7 +404,17 @@
               "path": ["api", "movimientos", "1"]
             },
             "description": "Elimina un movimiento y revierte su efecto en el saldo de la cuenta"
-          }
+          },
+          "response": [
+            {
+              "name": "Respuesta Exitosa",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"codigo\": \"SUCCESS\",\n  \"mensajeTecnico\": \"Movimiento eliminado correctamente\",\n  \"mensajeNegocio\": \"El movimiento ha sido eliminado y el saldo ha sido ajustado exitosamente\"\n}"
+            }
+          ]
         }
       ]
     },
