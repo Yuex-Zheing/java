@@ -3,6 +3,8 @@ package com.wquimis.demo.banking.controller;
 import com.wquimis.demo.banking.dto.CuentaDTO;
 import com.wquimis.demo.banking.dto.ErrorDTO;
 import com.wquimis.demo.banking.dto.MovimientoDTO;
+import com.wquimis.demo.banking.dto.UpdateCuentaDTO;
+import com.wquimis.demo.banking.exceptions.CuentaExistenteException;
 import com.wquimis.demo.banking.entities.Cliente;
 import com.wquimis.demo.banking.entities.Cuenta;
 import com.wquimis.demo.banking.entities.Movimiento;
@@ -18,6 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -97,20 +100,34 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Crear nueva cuenta")
     @PostMapping("/cuentas")
-    public ResponseEntity<CuentaDTO> createCuenta(@Valid @RequestBody CuentaDTO cuentaDto) {
-        var cliente = clienteService.findById(cuentaDto.getIdCliente());
-        var cuenta = dtoConverter.toEntity(cuentaDto, cliente);
-        return ResponseEntity.ok(dtoConverter.toDto(cuentaService.save(cuenta)));
+    public ResponseEntity<?> createCuenta(@Valid @RequestBody CuentaDTO cuentaDto) {
+        try {
+            var cliente = clienteService.findById(cuentaDto.getIdCliente());
+            var cuenta = dtoConverter.toEntity(cuentaDto, cliente);
+            return ResponseEntity.ok(dtoConverter.toDto(cuentaService.save(cuenta)));
+        } catch (CuentaExistenteException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorDTO.of("ERR_008",
+                    e.getMessage(),
+                    "Ya existe una cuenta con el número proporcionado"));
+        }
     }
 
     @Operation(summary = "Actualizar cuenta existente")
     @PutMapping("/cuentas/{numeroCuenta}")
-    public ResponseEntity<CuentaDTO> updateCuenta(
+    public ResponseEntity<?> updateCuenta(
             @PathVariable Integer numeroCuenta,
-            @Valid @RequestBody CuentaDTO cuentaDto) {
-        var cuentaExistente = cuentaService.findByNumeroCuenta(numeroCuenta);
-        var cuenta = dtoConverter.toEntity(cuentaDto, cuentaExistente.getCliente());
-        return ResponseEntity.ok(dtoConverter.toDto(cuentaService.update(numeroCuenta, cuenta)));
+            @Valid @RequestBody UpdateCuentaDTO updateCuentaDto) {
+        try {
+            Cuenta cuentaExistente = cuentaService.findByNumeroCuenta(numeroCuenta);
+            cuentaExistente.setEstado(updateCuentaDto.getEstado());
+            return ResponseEntity.ok(dtoConverter.toDto(cuentaService.update(numeroCuenta, cuentaExistente)));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorDTO.of("ERR_001",
+                    "Cuenta no encontrada con número: " + numeroCuenta,
+                    "La cuenta que intenta actualizar no existe"));
+        }
     }
 
     @Operation(summary = "Eliminar cuenta")

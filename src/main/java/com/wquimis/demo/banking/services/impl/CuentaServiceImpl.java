@@ -1,6 +1,7 @@
 package com.wquimis.demo.banking.services.impl;
 
 import com.wquimis.demo.banking.entities.Cuenta;
+import com.wquimis.demo.banking.exceptions.CuentaExistenteException;
 import com.wquimis.demo.banking.repository.CuentaRepository;
 import com.wquimis.demo.banking.services.CuentaService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,11 @@ public class CuentaServiceImpl implements CuentaService {
     @Override
     @Transactional
     public Cuenta save(Cuenta cuenta) {
+        // Verificar si ya existe una cuenta con el mismo número
+        if (cuentaRepository.findById(cuenta.getNumerocuenta()).isPresent()) {
+            throw new CuentaExistenteException("Ya existe una cuenta con el número: " + cuenta.getNumerocuenta());
+        }
+
         if (cuenta.getEstado() == null) {
             cuenta.setEstado(true);
         }
@@ -57,10 +63,9 @@ public class CuentaServiceImpl implements CuentaService {
     @Transactional
     public Cuenta update(Integer numeroCuenta, Cuenta cuenta) {
         Cuenta existingCuenta = findByNumeroCuenta(numeroCuenta);
-        existingCuenta.setTipocuenta(cuenta.getTipocuenta());
-        existingCuenta.setSaldoinicial(cuenta.getSaldoinicial());
+        // Solo permitir actualizar el estado
         existingCuenta.setEstado(cuenta.getEstado());
-        if (!existingCuenta.getEstado()) {
+        if (cuenta.getEstado() != null && !cuenta.getEstado()) {
             existingCuenta.setFechacierre(LocalDateTime.now());
         }
         return cuentaRepository.save(existingCuenta);
