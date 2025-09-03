@@ -118,14 +118,15 @@ public class DtoConverter {
         movimiento.setCuenta(cuenta);
         movimiento.setFechamovimiento(LocalDate.now());
         movimiento.setHoramovimiento(LocalTime.now());
-        movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(dto.getTipo()));
+        movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(dto.getTipomovimiento()));
+        
         // El valor será positivo para depósitos y negativo para retiros
-        BigDecimal monto = new BigDecimal(dto.getValor());
-        if (dto.getTipo().equals("RETIRO")) {
+        BigDecimal monto = dto.getMontomovimiento();
+        if (dto.getTipomovimiento().equals("RETIRO")) {
             monto = monto.negate();
         }
         movimiento.setMontomovimiento(monto);
-        movimiento.setMovimientodescripcion(dto.getDescripcion());
+        movimiento.setMovimientodescripcion(dto.getMovimientodescripcion());
         movimiento.setEstado(true);
         return movimiento;
     }
@@ -173,9 +174,9 @@ public class DtoConverter {
             java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         dto.setHora(movimiento.getHoramovimiento().format(
             java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS")));
-        dto.setDescripcion(movimiento.getMovimientodescripcion());
-        dto.setTipo(movimiento.getTipomovimiento().toString());
-        dto.setValor(movimiento.getMontomovimiento().abs().toPlainString());
+        dto.setMovimientodescripcion(movimiento.getMovimientodescripcion());
+        dto.setTipomovimiento(movimiento.getTipomovimiento().toString());
+        dto.setMontomovimiento(movimiento.getMontomovimiento().abs());
         dto.setSaldo(movimiento.getSaldodisponible());
         
         // Campo interno

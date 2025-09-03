@@ -8,6 +8,7 @@ import com.wquimis.demo.banking.exceptions.CuentaExistenteException;
 import com.wquimis.demo.banking.entities.Cliente;
 import com.wquimis.demo.banking.entities.Cuenta;
 import com.wquimis.demo.banking.entities.Movimiento;
+import com.wquimis.demo.banking.exceptions.SaldoNoDisponibleException;
 import com.wquimis.demo.banking.services.ClienteService;
 import com.wquimis.demo.banking.services.CuentaService;
 import com.wquimis.demo.banking.services.MovimientoService;
@@ -27,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -161,25 +163,43 @@ public class CuentaMovimientoController {
         @ApiResponse(responseCode = "404", description = "Cuenta no encontrada"),
         @ApiResponse(responseCode = "422", description = "Saldo insuficiente para realizar el retiro")
     })
-    @PostMapping("/movimientos/{numeroCuenta}")
-    public ResponseEntity<MovimientoDTO> realizarMovimiento(
+    @PostMapping("/movimientos/cuenta/{numeroCuenta}")
+    public ResponseEntity<?> realizarMovimiento(
             @PathVariable @NotNull(message = "El número de cuenta es requerido") Integer numeroCuenta,
             @Valid @RequestBody MovimientoDTO movimientoDto) {
-        // Verificar que la cuenta existe
-        var cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
-        
-        // Validar que la cuenta esté activa
-        if (!cuenta.getEstado()) {
-            throw new IllegalStateException("La cuenta se encuentra inactiva");
+        try {
+            // Verificar que la cuenta existe
+            var cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
+            
+            // Validar que la cuenta esté activa
+            if (!cuenta.getEstado()) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .body(ErrorDTO.of("ERR_002",
+                        "La cuenta se encuentra inactiva",
+                        "No se pueden realizar movimientos en una cuenta inactiva"));
+            }
+
+            // Preparar el movimiento
+            var movimiento = new Movimiento();
+            movimiento.setCuenta(cuenta);
+            movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(movimientoDto.getTipomovimiento()));
+            movimiento.setMontomovimiento(movimientoDto.getMontomovimiento());
+            movimiento.setMovimientodescripcion(movimientoDto.getMovimientodescripcion());
+            
+            // Realizar el movimiento y obtener el resultado
+            var movimientoRealizado = movimientoService.realizarMovimiento(movimiento);
+            return ResponseEntity.ok(dtoConverter.toDto(movimientoRealizado));
+        } catch (SaldoNoDisponibleException e) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ErrorDTO.of("ERR_003",
+                    e.getMessage(),
+                    "Saldo insuficiente para realizar el retiro"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al realizar el movimiento"));
         }
-        
-        // Preparar el movimiento
-        movimientoDto.setNumeroCuenta(numeroCuenta);
-        var movimiento = dtoConverter.toEntity(movimientoDto, cuenta);
-        
-        // Realizar el movimiento y obtener el resultado
-        var movimientoRealizado = movimientoService.realizarMovimiento(movimiento);
-        return ResponseEntity.ok(dtoConverter.toDto(movimientoRealizado));
     }
 
     @Operation(summary = "Eliminar movimiento")
@@ -205,17 +225,44 @@ public class CuentaMovimientoController {
         }
     }
 
-    @Operation(summary = "Obtener movimientos por cuenta")
+    @Operation(summary = "Obtener movimientos por cuenta y fecha")
+    @GetMapping("/movimientos/cuenta/{numeroCuenta}/fecha")
+    public ResponseEntity<?> getMovimientosByFecha(
+            @PathVariable Integer numeroCuenta,
+            @RequestParam String fechaInicio,
+            @RequestParam String fechaFin) {
+        try {
+            LocalDate inicio = LocalDate.parse(fechaInicio, java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            LocalDate fin = LocalDate.parse(fechaFin, java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            
+            List<MovimientoDTO> movimientos = movimientoService
+                .findByNumeroCuentaAndFechaBetween(numeroCuenta, inicio, fin)
+                .stream()
+                .map(dtoConverter::toDto)
+                .collect(Collectors.toList());
+                
+            return ResponseEntity.ok(movimientos);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al obtener los movimientos"));
+        }
+    }
+
+    @Operation(summary = "Obtener todos los movimientos por cuenta")
     @GetMapping("/movimientos/cuenta/{numeroCuenta}")
-    public ResponseEntity<List<MovimientoDTO>> getMovimientosByCuenta(@PathVariable Integer numeroCuenta) {
+    public ResponseEntity<?> getMovimientosByCuenta(@PathVariable Integer numeroCuenta) {
         try {
             List<MovimientoDTO> movimientos = movimientoService.findByNumeroCuenta(numeroCuenta).stream()
                     .map(dtoConverter::toDto)
                     .collect(Collectors.toList());
             return ResponseEntity.ok(movimientos);
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al obtener los movimientos"));
         }
     }
 
