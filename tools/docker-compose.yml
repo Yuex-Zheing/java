@@ -40,9 +40,9 @@ services:
       - "3306:3306"
     environment:
       - MYSQL_DATABASE=bankingdb
-      - MYSQL_USER=banking_user
-      - MYSQL_PASSWORD=banking_password
-      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_USER=zheing
+      - MYSQL_PASSWORD=Pa$$w0rd
+      - MYSQL_ROOT_PASSWORD=Pa$$w0rd
       - TZ=America/Guayaquil
     volumes:
       - mysql-data:/var/lib/mysql
