@@ -11,6 +11,10 @@ import org.hibernate.annotations.ColumnDefault;
 @Entity
 @Table(name = "cuentas")
 public class Cuenta {
+    public enum TipoCuenta {
+        AHORROS, CORRIENTE
+    }
+
     @Id
     private Integer numerocuenta;
 
@@ -37,40 +41,46 @@ public class Cuenta {
     @OneToMany(mappedBy = "cuenta", cascade = CascadeType.ALL)
     private List<Movimiento> movimientos;
 
-    @Column(precision = 10, scale = 4)
+    @Column(precision = 10, scale = 4, nullable = false)
     private BigDecimal saldodisponible;
 
-    public BigDecimal getSaldodisponible() {
-        return saldodisponible != null ? saldodisponible : saldoinicial;
+    // Proteger el saldo inicial
+    public void setSaldoinicial(BigDecimal saldoinicial) {
+        if (this.saldoinicial != null && !this.saldoinicial.equals(saldoinicial)) {
+            throw new IllegalStateException("El saldo inicial no puede ser modificado una vez establecido");
+        }
+        this.saldoinicial = saldoinicial;
+        if (this.saldodisponible == null) {
+            this.saldodisponible = saldoinicial;
+        }
     }
 
-    public void setSaldodisponible(BigDecimal saldodisponible) {
-        this.saldodisponible = saldodisponible;
+    // Actualizar solo el saldo disponible
+    public void actualizarSaldoDisponible(BigDecimal monto) {
+        this.saldodisponible = this.saldodisponible.add(monto);
     }
 
-    public enum TipoCuenta {
-        AHORROS, CORRIENTE
-    }
-
+    // Inicialización de cuenta
     @PrePersist
-    public void prePersist() {
-        if (estado == null) {
-            estado = true;
+    protected void inicializarCuenta() {
+        if (this.fechacreacion == null) {
+            this.fechacreacion = LocalDateTime.now();
         }
-        if (fechacreacion == null) {
-            fechacreacion = LocalDateTime.now();
+        if (this.estado == null) {
+            this.estado = true;
         }
-        if (saldoinicial == null) {
-            saldoinicial = BigDecimal.ZERO;
+        if (this.saldoinicial == null) {
+            this.saldoinicial = BigDecimal.ZERO;
         }
-        if (saldodisponible == null) {
-            saldodisponible = saldoinicial;
+        if (this.saldodisponible == null) {
+            this.saldodisponible = this.saldoinicial;
         }
     }
 
+    // Manejo del cierre de cuenta
     @PreUpdate
-    public void preUpdate() {
-        if (!estado && fechacierre == null) {
+    protected void verificarCierre() {
+        if (estado != null && !estado && fechacierre == null) {
             fechacierre = LocalDateTime.now();
         }
     }

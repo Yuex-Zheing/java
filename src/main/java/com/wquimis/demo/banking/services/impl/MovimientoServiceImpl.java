@@ -62,30 +62,30 @@ public class MovimientoServiceImpl implements MovimientoService {
             throw new IllegalStateException("La cuenta no está activa");
         }
 
-        BigDecimal saldoActual = cuenta.getSaldoinicial();
+        BigDecimal saldoDisponible = cuenta.getSaldodisponible();
 
         if (movimiento.getTipomovimiento() == Movimiento.TipoMovimiento.RETIRO) {
             BigDecimal montoRetiro = movimiento.getMontomovimiento().abs();
-            if (saldoActual.compareTo(montoRetiro) < 0) {
+            if (saldoDisponible.compareTo(montoRetiro) < 0) {
                 throw new SaldoNoDisponibleException("Saldo no disponible");
             }
-            saldoActual = saldoActual.subtract(montoRetiro);
+            saldoDisponible = saldoDisponible.subtract(montoRetiro);
             movimiento.setMovimientodescripcion("Retiro en efectivo por " + montoRetiro.toString());
             movimiento.setMontomovimiento(montoRetiro.negate());
         } else {
             BigDecimal montoDeposito = movimiento.getMontomovimiento().abs();
-            saldoActual = saldoActual.add(montoDeposito);
+            saldoDisponible = saldoDisponible.add(montoDeposito);
             movimiento.setMovimientodescripcion("Depósito en efectivo por " + montoDeposito.toString());
             movimiento.setMontomovimiento(montoDeposito);
         }
 
-        movimiento.setSaldodisponible(saldoActual);
+        movimiento.setSaldodisponible(saldoDisponible);
         movimiento.setFechamovimiento(LocalDate.now());
         movimiento.setHoramovimiento(LocalTime.now());
         movimiento.setEstado(true);
 
-        cuenta.setSaldoinicial(saldoActual);
-        cuenta.setSaldodisponible(saldoActual);
+        // Solo actualizamos el saldo disponible, no el saldo inicial
+        cuenta.setSaldodisponible(saldoDisponible);
         cuentaService.update(cuenta.getNumerocuenta(), cuenta);
 
         return movimientoRepository.save(movimiento);
