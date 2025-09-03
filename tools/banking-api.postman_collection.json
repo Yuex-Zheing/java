@@ -6,6 +6,86 @@
   },
   "item": [
     {
+      "name": "Onboarding",
+      "item": [
+        {
+          "name": "Crear Cliente Bancario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/onboarding/banking",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "onboarding", "banking"]
+            },
+            "description": "Crea una nueva persona con su respectivo cliente y cuenta bancaria",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"persona\": {\n    \"identificacionpersona\": \"0919395186\",\n    \"nombres\": \"William Quimis\",\n    \"genero\": \"M\",\n    \"edad\": 35,\n    \"direccion\": \"Av. Principal 123\",\n    \"telefono\": \"0991234567\"\n  },\n  \"cliente\": {\n    \"nombreUsuario\": \"wquimis\",\n    \"contrasena\": \"Pass123*\"\n  },\n  \"cuenta\": {\n    \"tipoCuenta\": \"AHORROS\",\n    \"saldoInicial\": 100.00\n  }\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "Respuesta Exitosa",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"persona\": {\n    \"identificacionpersona\": \"0919395186\",\n    \"nombres\": \"William Quimis\",\n    \"genero\": \"M\",\n    \"edad\": 35,\n    \"direccion\": \"Av. Principal 123\",\n    \"telefono\": \"0991234567\"\n  },\n  \"cliente\": {\n    \"nombreUsuario\": \"wquimis\",\n    \"contrasena\": \"Pass123*\"\n  },\n  \"cuenta\": {\n    \"tipoCuenta\": \"AHORROS\",\n    \"saldoInicial\": 100.00\n  }\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/onboarding/banking"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"numeroCuenta\": 100006,\n  \"cliente\": {\n    \"idcliente\": 6,\n    \"persona\": {\n      \"idpersona\": 6,\n      \"identificacionpersona\": \"0919395186\",\n      \"nombres\": \"William Quimis\",\n      \"genero\": \"M\",\n      \"edad\": 35,\n      \"direccion\": \"Av. Principal 123\",\n      \"telefono\": \"0991234567\",\n      \"estado\": true\n    },\n    \"nombreusuario\": \"wquimis\",\n    \"estado\": true\n  },\n  \"tipoCuenta\": \"AHORROS\",\n  \"saldoInicial\": 100.00,\n  \"saldoDisponible\": 100.00,\n  \"estado\": true,\n  \"fechaCreacion\": \"2025-09-03T10:30:00\"\n}"
+            },
+            {
+              "name": "Error - Datos Inválidos",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"persona\": {\n    \"identificacionpersona\": \"0919395186\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8080/api/onboarding/banking"
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"codigo\": \"ERR_001\",\n  \"mensajeTecnico\": \"Datos de persona incompletos\",\n  \"mensajeNegocio\": \"Por favor complete todos los datos requeridos\"\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints para el proceso de onboarding de nuevos clientes"
+    },
+    {
       "name": "Personas",
       "item": [
         {
