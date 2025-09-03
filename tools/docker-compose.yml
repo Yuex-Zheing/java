@@ -46,8 +46,10 @@ services:
       - TZ=America/Guayaquil
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./mysql-custom.cnf:/etc/mysql/conf.d/mysql-custom.cnf
       - ./1_create_schema.sql:/docker-entrypoint-initdb.d/1_create_schema.sql
       - ./2_insert_sample_data.sql:/docker-entrypoint-initdb.d/2_insert_sample_data.sql
+      - ./3_grant_remote_access.sql:/docker-entrypoint-initdb.d/3_grant_remote_access.sql
     networks:
       - banking-network
     healthcheck:
