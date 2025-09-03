@@ -1,5 +1,4 @@
-version: '3.8'
-
+#version: '3.8'
 services:
   app:
     build:
@@ -51,14 +50,14 @@ services:
     networks:
       - banking-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "banking_user", "--password=banking_password"]
-      interval: 10s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "zheing", "--password=Pa$$w0rd"]
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 10
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 650M
     command: --default-authentication-plugin=mysql_native_password
              --character-set-server=utf8mb4
              --collation-server=utf8mb4_unicode_ci
