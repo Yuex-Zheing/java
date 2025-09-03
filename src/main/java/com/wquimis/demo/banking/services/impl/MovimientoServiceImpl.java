@@ -94,33 +94,48 @@ public class MovimientoServiceImpl implements MovimientoService {
     @Override
     @Transactional
     public void delete(Long id) {
-        Movimiento movimiento = findById(id);
-        Cuenta cuenta = movimiento.getCuenta();
+        // Obtener el movimiento original
+        Movimiento movimientoOriginal = findById(id);
+        if (!movimientoOriginal.getEstado()) {
+            throw new IllegalStateException("El movimiento ya está anulado");
+        }
+
+        Cuenta cuenta = movimientoOriginal.getCuenta();
+        BigDecimal saldoDisponible = cuenta.getSaldodisponible();
         
-        // Revertir el efecto del movimiento en el saldo
-        BigDecimal saldoActual = cuenta.getSaldoinicial();
+        // Crear un nuevo movimiento de reverso
+        Movimiento movimientoReverso = new Movimiento();
+        movimientoReverso.setCuenta(cuenta);
+        movimientoReverso.setEstado(true);
+        movimientoReverso.setFechamovimiento(LocalDate.now());
+        movimientoReverso.setHoramovimiento(LocalTime.now());
         
-        // Obtener el monto absoluto para la descripción
-        BigDecimal montoAbsoluto = movimiento.getMontomovimiento().abs();
-        
-        if (movimiento.getTipomovimiento() == Movimiento.TipoMovimiento.RETIRO) {
-            // Si era un retiro, sumamos el monto al saldo (revertimos el retiro)
-            saldoActual = saldoActual.subtract(movimiento.getMontomovimiento()); // El monto es negativo en retiros
-            movimiento.setMovimientodescripcion("Reverso de retiro por $" + montoAbsoluto.toString());
+        // Configurar el tipo y monto del reverso
+        if (movimientoOriginal.getTipomovimiento() == Movimiento.TipoMovimiento.RETIRO) {
+            // Si era un retiro, creamos un depósito por el mismo monto
+            movimientoReverso.setTipomovimiento(Movimiento.TipoMovimiento.DEPOSITO);
+            movimientoReverso.setMontomovimiento(movimientoOriginal.getMontomovimiento().abs());
+            saldoDisponible = saldoDisponible.add(movimientoOriginal.getMontomovimiento().abs());
+            movimientoReverso.setMovimientodescripcion("Reverso de retiro - Movimiento #" + movimientoOriginal.getIdmovimiento());
         } else {
-            // Si era un depósito, restamos el monto del saldo (revertimos el depósito)
-            saldoActual = saldoActual.subtract(movimiento.getMontomovimiento()); // El monto es positivo en depósitos
-            movimiento.setMovimientodescripcion("Reverso de depósito por $" + montoAbsoluto.toString());
+            // Si era un depósito, creamos un retiro por el mismo monto
+            movimientoReverso.setTipomovimiento(Movimiento.TipoMovimiento.RETIRO);
+            movimientoReverso.setMontomovimiento(movimientoOriginal.getMontomovimiento().negate());
+            saldoDisponible = saldoDisponible.subtract(movimientoOriginal.getMontomovimiento());
+            movimientoReverso.setMovimientodescripcion("Reverso de depósito - Movimiento #" + movimientoOriginal.getIdmovimiento());
         }
         
-        // Actualizar saldo de la cuenta
-        cuenta.setSaldoinicial(saldoActual);
-        cuenta.setSaldodisponible(saldoActual);
-        cuentaService.update(cuenta.getNumerocuenta(), cuenta);
+        // Actualizar saldos
+        movimientoReverso.setSaldodisponible(saldoDisponible);
+        cuenta.setSaldodisponible(saldoDisponible);
         
-        // Marcar el movimiento como eliminado y actualizar descripción y saldo
-        movimiento.setEstado(false);
-        movimiento.setSaldodisponible(saldoActual);
-        movimientoRepository.save(movimiento);
+        // Marcar el movimiento original como anulado
+        movimientoOriginal.setEstado(false);
+        movimientoOriginal.setMovimientodescripcion(movimientoOriginal.getMovimientodescripcion() + " [ANULADO]");
+        
+        // Guardar los cambios
+        movimientoRepository.save(movimientoOriginal);
+        movimientoRepository.save(movimientoReverso);
+        cuentaService.update(cuenta.getNumerocuenta(), cuenta);
     }
 }
