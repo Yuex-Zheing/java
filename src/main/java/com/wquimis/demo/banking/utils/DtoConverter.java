@@ -11,6 +11,14 @@ import java.math.BigDecimal;
 @Component
 public class DtoConverter {
 
+    public static Cliente createClienteFromDTO(CreateClienteDTO dto) {
+        Cliente cliente = new Cliente();
+        cliente.setNombreusuario(dto.getNombreUsuario());
+        cliente.setContrasena(dto.getContrasena());
+        cliente.setEstado(true);
+        return cliente;
+    }
+
     public static Persona updatePersonaFromDTO(PersonaUpdateDTO dto, Persona persona) {
         persona.setNombres(dto.getNombres());
         persona.setGenero(dto.getGenero());
@@ -39,6 +47,7 @@ public class DtoConverter {
         dto.setId(cliente.getIdcliente());
         dto.setNombreUsuario(cliente.getNombreusuario());
         dto.setContrasena(cliente.getContrasena());
+        dto.setEstado(cliente.getEstado());
         if (cliente.getPersona() != null) {
             dto.setPersonaId(cliente.getPersona().getIdpersona());
             dto.setIdentificacionPersona(cliente.getPersona().getIdentificacionpersona());

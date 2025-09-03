@@ -4,6 +4,9 @@ import com.wquimis.demo.banking.dto.ErrorDTO;
 import com.wquimis.demo.banking.dto.PersonaDTO;
 import com.wquimis.demo.banking.dto.PersonaUpdateDTO;
 import com.wquimis.demo.banking.dto.ClienteDTO;
+import com.wquimis.demo.banking.dto.CreateClienteDTO;
+import com.wquimis.demo.banking.dto.UpdateClienteDTO;
+import com.wquimis.demo.banking.exceptions.ClienteExistenteException;
 import com.wquimis.demo.banking.entities.Persona;
 import com.wquimis.demo.banking.entities.Cliente;
 import com.wquimis.demo.banking.services.PersonaService;
@@ -126,58 +129,65 @@ public class PersonaClienteController {
 
     @Operation(summary = "Crear un nuevo cliente")
     @PostMapping("/clientes")
-    public ResponseEntity<ClienteDTO> createCliente(
-            @Parameter(description = "Datos del cliente") @Valid @RequestBody ClienteDTO clienteDTO) {
-        // Verificar que exista la persona
-        Persona persona = personaService.findById(clienteDTO.getPersonaId());
-        if (persona == null) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<?> createCliente(
+            @Parameter(description = "Datos del cliente") @Valid @RequestBody CreateClienteDTO createClienteDTO) {
+        try {
+            // Verificar que exista la persona
+            Persona persona = personaService.findById(createClienteDTO.getPersonaId());
+            
+            Cliente cliente = DtoConverter.createClienteFromDTO(createClienteDTO);
+            cliente.setPersona(persona);
+            Cliente savedCliente = clienteService.save(cliente);
+            return ResponseEntity.ok(DtoConverter.toClienteDTO(savedCliente));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorDTO.of("ERR_005", 
+                    "Persona no encontrada con ID: " + createClienteDTO.getPersonaId(),
+                    "La persona asociada al cliente no existe"));
+        } catch (ClienteExistenteException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorDTO.of("ERR_006",
+                    e.getMessage(),
+                    "Ya existe un cliente registrado para esta persona"));
         }
-
-        Cliente cliente = DtoConverter.toCliente(clienteDTO);
-        cliente.setPersona(persona);
-        cliente.setEstado(true);
-        Cliente savedCliente = clienteService.save(cliente);
-        return ResponseEntity.ok(DtoConverter.toClienteDTO(savedCliente));
     }
 
     @Operation(summary = "Actualizar un cliente existente")
     @PutMapping("/clientes/{id}")
-    public ResponseEntity<ClienteDTO> updateCliente(
+    public ResponseEntity<?> updateCliente(
             @Parameter(description = "ID del cliente") @PathVariable Long id,
-            @Parameter(description = "Datos actualizados del cliente") @Valid @RequestBody ClienteDTO clienteDTO) {
-        Cliente existingCliente = clienteService.findById(id);
-        if (existingCliente == null) {
-            return ResponseEntity.notFound().build();
+            @Parameter(description = "Datos actualizados del cliente") @Valid @RequestBody UpdateClienteDTO updateClienteDTO) {
+        try {
+            Cliente existingCliente = clienteService.findById(id);
+            existingCliente.setNombreusuario(updateClienteDTO.getNombreUsuario());
+            existingCliente.setContrasena(updateClienteDTO.getContrasena());
+            existingCliente.setEstado(updateClienteDTO.getEstado());
+            
+            Cliente updatedCliente = clienteService.update(id, existingCliente);
+            return ResponseEntity.ok(DtoConverter.toClienteDTO(updatedCliente));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorDTO.of("ERR_007", 
+                    "Cliente no encontrado con ID: " + id,
+                    "El cliente que intenta actualizar no existe"));
         }
-
-        // Verificar que exista la persona si se está actualizando
-        if (clienteDTO.getPersonaId() != null) {
-            Persona persona = personaService.findById(clienteDTO.getPersonaId());
-            if (persona == null) {
-                return ResponseEntity.badRequest().build();
-            }
-            existingCliente.setPersona(persona);
-        }
-
-        existingCliente.setNombreusuario(clienteDTO.getNombreUsuario());
-        if (clienteDTO.getContrasena() != null && !clienteDTO.getContrasena().isEmpty()) {
-            existingCliente.setContrasena(clienteDTO.getContrasena());
-        }
-
-        Cliente updatedCliente = clienteService.save(existingCliente);
-        return ResponseEntity.ok(DtoConverter.toClienteDTO(updatedCliente));
     }
 
     @Operation(summary = "Eliminar un cliente")
     @DeleteMapping("/clientes/{id}")
-    public ResponseEntity<Void> deleteCliente(
+    public ResponseEntity<?> deleteCliente(
             @Parameter(description = "ID del cliente") @PathVariable Long id) {
-        Cliente cliente = clienteService.findById(id);
-        if (cliente == null) {
-            return ResponseEntity.notFound().build();
+        try {
+            // El método delete ya verifica si existe el cliente
+            clienteService.delete(id);
+            return ResponseEntity.ok(ErrorDTO.of("SUCCESS",
+                "Cliente eliminado correctamente",
+                "El cliente ha sido eliminado exitosamente"));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorDTO.of("ERR_007",
+                    "Cliente no encontrado con ID: " + id,
+                    "El cliente que intenta eliminar no existe"));
         }
-        clienteService.delete(id);
-        return ResponseEntity.ok().build();
     }
 }

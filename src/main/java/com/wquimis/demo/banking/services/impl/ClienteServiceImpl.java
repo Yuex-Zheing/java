@@ -1,6 +1,7 @@
 package com.wquimis.demo.banking.services.impl;
 
 import com.wquimis.demo.banking.entities.Cliente;
+import com.wquimis.demo.banking.exceptions.ClienteExistenteException;
 import com.wquimis.demo.banking.repository.ClienteRepository;
 import com.wquimis.demo.banking.services.ClienteService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,12 @@ public class ClienteServiceImpl implements ClienteService {
     @Override
     @Transactional
     public Cliente save(Cliente cliente) {
+        // Verificar si ya existe un cliente para esta persona
+        clienteRepository.findByPersonaIdpersona(cliente.getPersona().getIdpersona())
+            .ifPresent(c -> {
+                throw new ClienteExistenteException(cliente.getPersona().getIdpersona());
+            });
+
         if (cliente.getEstado() == null) {
             cliente.setEstado(true);
         }
@@ -50,7 +57,10 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente existingCliente = findById(id);
         existingCliente.setNombreusuario(cliente.getNombreusuario());
         existingCliente.setContrasena(cliente.getContrasena());
-        existingCliente.setEstado(cliente.getEstado());
+        // Mantener el estado actual si no se proporciona uno nuevo
+        if (cliente.getEstado() != null) {
+            existingCliente.setEstado(cliente.getEstado());
+        }
         return clienteRepository.save(existingCliente);
     }
 

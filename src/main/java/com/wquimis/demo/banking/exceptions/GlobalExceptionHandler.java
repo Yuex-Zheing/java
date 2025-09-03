@@ -49,6 +49,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(ClienteExistenteException.class)
+    public ResponseEntity<Map<String, String>> handleClienteExistenteException(ClienteExistenteException e) {
+        Map<String, String> response = new HashMap<>();
+        response.put("error", "Cliente ya existe");
+        response.put("mensaje", e.getMessage());
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException e) {
         Map<String, String> response = new HashMap<>();
