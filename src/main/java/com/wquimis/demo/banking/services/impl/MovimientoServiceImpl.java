@@ -95,7 +95,32 @@ public class MovimientoServiceImpl implements MovimientoService {
     @Transactional
     public void delete(Long id) {
         Movimiento movimiento = findById(id);
+        Cuenta cuenta = movimiento.getCuenta();
+        
+        // Revertir el efecto del movimiento en el saldo
+        BigDecimal saldoActual = cuenta.getSaldoinicial();
+        
+        // Obtener el monto absoluto para la descripción
+        BigDecimal montoAbsoluto = movimiento.getMontomovimiento().abs();
+        
+        if (movimiento.getTipomovimiento() == Movimiento.TipoMovimiento.RETIRO) {
+            // Si era un retiro, sumamos el monto al saldo (revertimos el retiro)
+            saldoActual = saldoActual.subtract(movimiento.getMontomovimiento()); // El monto es negativo en retiros
+            movimiento.setMovimientodescripcion("Reverso de retiro por $" + montoAbsoluto.toString());
+        } else {
+            // Si era un depósito, restamos el monto del saldo (revertimos el depósito)
+            saldoActual = saldoActual.subtract(movimiento.getMontomovimiento()); // El monto es positivo en depósitos
+            movimiento.setMovimientodescripcion("Reverso de depósito por $" + montoAbsoluto.toString());
+        }
+        
+        // Actualizar saldo de la cuenta
+        cuenta.setSaldoinicial(saldoActual);
+        cuenta.setSaldodisponible(saldoActual);
+        cuentaService.update(cuenta.getNumerocuenta(), cuenta);
+        
+        // Marcar el movimiento como eliminado y actualizar descripción y saldo
         movimiento.setEstado(false);
+        movimiento.setSaldodisponible(saldoActual);
         movimientoRepository.save(movimiento);
     }
 }

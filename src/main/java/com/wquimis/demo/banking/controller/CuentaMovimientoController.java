@@ -130,6 +130,13 @@ public class CuentaMovimientoController {
         return ResponseEntity.ok(dtoConverter.toDto(movimientoRealizado));
     }
 
+    @Operation(summary = "Eliminar movimiento")
+    @DeleteMapping("/movimientos/{idMovimiento}")
+    public ResponseEntity<Void> deleteMovimiento(@PathVariable Long idMovimiento) {
+        movimientoService.delete(idMovimiento);
+        return ResponseEntity.ok().build();
+    }
+
     @Operation(summary = "Obtener movimientos por cuenta")
     @GetMapping("/movimientos/cuenta/{numeroCuenta}")
     public ResponseEntity<List<MovimientoDTO>> getMovimientosByCuenta(@PathVariable Integer numeroCuenta) {

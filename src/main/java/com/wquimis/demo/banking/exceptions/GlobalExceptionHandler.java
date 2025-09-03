@@ -41,6 +41,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
+    @ExceptionHandler(PersonaExistenteException.class)
+    public ResponseEntity<Map<String, String>> handlePersonaExistenteException(PersonaExistenteException e) {
+        Map<String, String> response = new HashMap<>();
+        response.put("error", "Persona ya existe");
+        response.put("mensaje", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException e) {
         Map<String, String> response = new HashMap<>();

@@ -23,13 +23,27 @@
           }
         },
         {
+          "name": "Obtener Persona por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8080/api/personas/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "personas", "1"]
+            },
+            "description": "Obtiene los detalles de una persona por su ID"
+          }
+        },
+        {
           "name": "Crear Persona",
           "request": {
             "method": "POST",
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identificacion\": \"1234567890\",\n  \"nombres\": \"Juan Carlos Pérez\",\n  \"genero\": \"M\",\n  \"edad\": 35,\n  \"direccion\": \"Av. Principal 123\",\n  \"telefono\": \"0991234567\"\n}"
+              "raw": "{\n  \"identificacionpersona\": \"1234567890\",\n  \"nombres\": \"Juan Carlos Pérez\",\n  \"genero\": \"M\",\n  \"edad\": 35,\n  \"direccion\": \"Av. Principal 123\",\n  \"telefono\": \"0991234567\",\n  \"estado\": true\n}"
             },
             "url": {
               "raw": "http://localhost:8080/api/personas",
@@ -42,17 +56,36 @@
           }
         },
         {
-          "name": "Obtener Persona por ID",
+          "name": "Actualizar Persona",
           "request": {
-            "method": "GET",
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identificacionpersona\": \"1234567890\",\n  \"nombres\": \"Juan Carlos Pérez\",\n  \"genero\": \"M\",\n  \"edad\": 36,\n  \"direccion\": \"Av. Principal 123\",\n  \"telefono\": \"0991234567\",\n  \"estado\": true\n}"
+            },
             "url": {
-              "raw": "http://localhost:8080/api/personas/1234567890",
+              "raw": "http://localhost:8080/api/personas/1",
               "protocol": "http",
               "host": ["localhost"],
               "port": "8080",
-              "path": ["api", "personas", "1234567890"]
+              "path": ["api", "personas", "1"]
             },
-            "description": "Obtiene los detalles de una persona por su identificación"
+            "description": "Actualiza los datos de una persona existente"
+          }
+        },
+        {
+          "name": "Eliminar Persona",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8080/api/personas/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "personas", "1"]
+            },
+            "description": "Elimina una persona del sistema"
           }
         }
       ]
@@ -75,13 +108,27 @@
           }
         },
         {
+          "name": "Obtener Cliente por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8080/api/clientes/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "clientes", "1"]
+            },
+            "description": "Obtiene los detalles de un cliente por su ID"
+          }
+        },
+        {
           "name": "Crear Cliente",
           "request": {
             "method": "POST",
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identificacionPersona\": \"1234567890\",\n  \"nombreUsuario\": \"jperez\",\n  \"contrasena\": \"Pass123*\"\n}"
+              "raw": "{\n  \"personaId\": 1,\n  \"nombreUsuario\": \"jperez\",\n  \"contrasena\": \"Pass123*\"\n}"
             },
             "url": {
               "raw": "http://localhost:8080/api/clientes",
@@ -91,6 +138,39 @@
               "path": ["api", "clientes"]
             },
             "description": "Crea un nuevo cliente asociado a una persona existente"
+          }
+        },
+        {
+          "name": "Actualizar Cliente",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personaId\": 1,\n  \"nombreUsuario\": \"jperez2\",\n  \"contrasena\": \"NewPass123*\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/clientes/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "clientes", "1"]
+            },
+            "description": "Actualiza los datos de un cliente existente"
+          }
+        },
+        {
+          "name": "Eliminar Cliente",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8080/api/clientes/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "clientes", "1"]
+            },
+            "description": "Elimina un cliente del sistema"
           }
         }
       ]
@@ -110,25 +190,6 @@
               "path": ["api", "cuentas"]
             },
             "description": "Obtiene la lista de todas las cuentas"
-          }
-        },
-        {
-          "name": "Crear Cuenta",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"idCliente\": 1,\n  \"numeroCuenta\": 100006,\n  \"tipoCuenta\": \"AHORROS\",\n  \"saldoInicial\": 2000.0000\n}"
-            },
-            "url": {
-              "raw": "http://localhost:8080/api/cuentas",
-              "protocol": "http",
-              "host": ["localhost"],
-              "port": "8080",
-              "path": ["api", "cuentas"]
-            },
-            "description": "Crea una nueva cuenta para un cliente existente"
           }
         },
         {
@@ -158,6 +219,58 @@
             },
             "description": "Obtiene todas las cuentas de un cliente específico"
           }
+        },
+        {
+          "name": "Crear Cuenta",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idCliente\": 1,\n  \"numeroCuenta\": 100006,\n  \"tipoCuenta\": \"AHORROS\",\n  \"saldoInicial\": 2000.00,\n  \"estado\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/cuentas",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cuentas"]
+            },
+            "description": "Crea una nueva cuenta para un cliente existente"
+          }
+        },
+        {
+          "name": "Actualizar Cuenta",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idCliente\": 1,\n  \"tipoCuenta\": \"AHORROS\",\n  \"estado\": true\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/cuentas/100001",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cuentas", "100001"]
+            },
+            "description": "Actualiza los datos de una cuenta existente"
+          }
+        },
+        {
+          "name": "Eliminar Cuenta",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8080/api/cuentas/100001",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cuentas", "100001"]
+            },
+            "description": "Elimina una cuenta del sistema"
+          }
         }
       ]
     },
@@ -171,47 +284,25 @@
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tipo\": \"DEPOSITO\",\n  \"valor\": \"500.0000\",\n  \"descripcion\": \"Depósito inicial\"\n}"
+              "raw": "{\n  \"cuenta\": {\n    \"numerocuenta\": 100001\n  },\n  \"tipomovimiento\": \"DEPOSITO\",\n  \"montomovimiento\": 500.00,\n  \"movimientodescripcion\": \"Depósito inicial\"\n}"
             },
             "url": {
-              "raw": "http://localhost:8080/api/movimientos/100001",
+              "raw": "http://localhost:8080/api/movimientos",
               "protocol": "http",
               "host": ["localhost"],
               "port": "8080",
-              "path": ["api", "movimientos", "100001"]
+              "path": ["api", "movimientos"]
             },
-            "description": "Realiza un nuevo movimiento en una cuenta. El valor debe ser positivo tanto para depósitos como retiros."
+            "description": "Realiza un nuevo movimiento en una cuenta"
           },
           "response": [
             {
               "name": "Respuesta Exitosa",
-              "originalRequest": {
-                "method": "POST",
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"tipo\": \"DEPOSITO\",\n  \"valor\": \"500.0000\",\n  \"descripcion\": \"Depósito inicial\"\n}"
-                }
-              },
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
               "header": [{"key": "Content-Type", "value": "application/json"}],
-              "body": "{\n    \"id\": 16,\n    \"fecha\": \"02/09/2025\",\n    \"hora\": \"10:30:00.000\",\n    \"tipo\": \"DEPOSITO\",\n    \"valor\": \"500.0000\",\n    \"descripcion\": \"Depósito inicial\",\n    \"saldo\": 2500.0000\n}"
-            },
-            {
-              "name": "Error - Saldo Insuficiente",
-              "originalRequest": {
-                "method": "POST",
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"tipo\": \"RETIRO\",\n  \"valor\": \"5000.0000\",\n  \"descripcion\": \"Retiro mayor al saldo\"\n}"
-                }
-              },
-              "status": "Unprocessable Entity",
-              "code": 422,
-              "_postman_previewlanguage": "json",
-              "header": [{"key": "Content-Type", "value": "application/json"}],
-              "body": "{\n    \"mensaje\": \"Saldo insuficiente para realizar el retiro\",\n    \"saldoDisponible\": 2000.0000\n}"
+              "body": "{\n    \"id\": 1,\n    \"fechamovimiento\": \"02/09/2025\",\n    \"horamovimiento\": \"10:30:00.000\",\n    \"tipomovimiento\": \"DEPOSITO\",\n    \"montomovimiento\": 500.00,\n    \"movimientodescripcion\": \"Depósito inicial\",\n    \"saldodisponible\": 2500.00,\n    \"estado\": true\n}"
             }
           ]
         },
@@ -227,17 +318,45 @@
               "path": ["api", "movimientos", "cuenta", "100001"]
             },
             "description": "Obtiene todos los movimientos de una cuenta específica"
-          },
-          "response": [
-            {
-              "name": "Respuesta Exitosa",
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [{"key": "Content-Type", "value": "application/json"}],
-              "body": "[\n    {\n        \"id\": 1,\n        \"fecha\": \"30/08/2025\",\n        \"hora\": \"09:00:00.000\",\n        \"tipo\": \"DEPOSITO\",\n        \"valor\": \"500.0000\",\n        \"descripcion\": \"Depósito inicial\",\n        \"saldo\": 2500.0000\n    },\n    {\n        \"id\": 2,\n        \"fecha\": \"30/08/2025\",\n        \"hora\": \"14:30:00.000\",\n        \"tipo\": \"RETIRO\",\n        \"valor\": \"200.0000\",\n        \"descripcion\": \"Retiro en cajero\",\n        \"saldo\": 2300.0000\n    }\n]"
-            }
-          ]
+          }
+        },
+        {
+          "name": "Obtener Movimientos por Rango de Fechas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:8080/api/movimientos/cuenta/100001/fecha?fechaInicio=2025-09-01&fechaFin=2025-09-02",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "movimientos", "cuenta", "100001", "fecha"],
+              "query": [
+                {
+                  "key": "fechaInicio",
+                  "value": "2025-09-01"
+                },
+                {
+                  "key": "fechaFin",
+                  "value": "2025-09-02"
+                }
+              ]
+            },
+            "description": "Obtiene los movimientos de una cuenta en un rango de fechas específico"
+          }
+        },
+        {
+          "name": "Eliminar Movimiento",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "http://localhost:8080/api/movimientos/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "movimientos", "1"]
+            },
+            "description": "Elimina un movimiento y revierte su efecto en el saldo de la cuenta"
+          }
         }
       ]
     },
@@ -249,7 +368,7 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "http://localhost:8080/api/reportes?identificacion=1234567890&fechaInicio=30/08/2025&fechaFin=31/08/2025",
+              "raw": "http://localhost:8080/api/reportes?identificacion=1234567890&fechaInicio=2025-09-01&fechaFin=2025-09-02",
               "protocol": "http",
               "host": ["localhost"],
               "port": "8080",
@@ -262,28 +381,18 @@
                 },
                 {
                   "key": "fechaInicio",
-                  "value": "30/08/2025",
-                  "description": "Fecha inicial del reporte (dd/MM/yyyy)"
+                  "value": "2025-09-01",
+                  "description": "Fecha inicial del reporte (yyyy-MM-dd)"
                 },
                 {
                   "key": "fechaFin",
-                  "value": "31/08/2025",
-                  "description": "Fecha final del reporte (dd/MM/yyyy)"
+                  "value": "2025-09-02",
+                  "description": "Fecha final del reporte (yyyy-MM-dd)"
                 }
               ]
             },
             "description": "Genera un reporte de movimientos por cliente en un rango de fechas específico"
-          },
-          "response": [
-            {
-              "name": "Respuesta Exitosa",
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [{"key": "Content-Type", "value": "application/json"}],
-              "body": "{\n    \"FechaReporte\": \"2/9/2025\",\n    \"Cliente\": {\n        \"nombres\": \"Juan Carlos Pérez\",\n        \"identificacion\": \"1234567890\"\n    },\n    \"Cuentas\": [\n        {\n            \"SaldoInicial\": \"2000.0000\",\n            \"Numero\": \"100001\",\n            \"TipoCuenta\": \"AHORROS\",\n            \"SaldoDisponible\": \"2300.0000\",\n            \"Estado\": \"ACTIVA\",\n            \"FechaCreacion\": \"30/08/2025\",\n            \"Movimientos\": [\n                {\n                    \"id\": 1,\n                    \"fecha\": \"30/08/2025\",\n                    \"hora\": \"09:00:00.000\",\n                    \"tipo\": \"DEPOSITO\",\n                    \"valor\": \"500.0000\",\n                    \"descripcion\": \"Depósito inicial\",\n                    \"saldo\": \"2500.0000\"\n                },\n                {\n                    \"id\": 2,\n                    \"fecha\": \"30/08/2025\",\n                    \"hora\": \"14:30:00.000\",\n                    \"tipo\": \"RETIRO\",\n                    \"valor\": \"200.0000\",\n                    \"descripcion\": \"Retiro en cajero\",\n                    \"saldo\": \"2300.0000\"\n                }\n            ]\n        }\n    ]\n}"
-            }
-          ]
+          }
         }
       ]
     }

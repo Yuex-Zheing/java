@@ -1,6 +1,7 @@
 package com.wquimis.demo.banking.services.impl;
 
 import com.wquimis.demo.banking.entities.Persona;
+import com.wquimis.demo.banking.exceptions.PersonaExistenteException;
 import com.wquimis.demo.banking.repository.PersonaRepository;
 import com.wquimis.demo.banking.services.PersonaService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,12 @@ public class PersonaServiceImpl implements PersonaService {
     @Override
     @Transactional
     public Persona save(Persona persona) {
+        // Verificar si ya existe una persona con la misma identificación
+        personaRepository.findByIdentificacionpersona(persona.getIdentificacionpersona())
+            .ifPresent(p -> {
+                throw new PersonaExistenteException(persona.getIdentificacionpersona());
+            });
+
         if (persona.getEstado() == null) {
             persona.setEstado(true);
         }
