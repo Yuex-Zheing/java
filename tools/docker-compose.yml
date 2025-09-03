@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: banking-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://bddmysql:3306/bankingdb?allowPublicKeyRetrieval=true&useSSL=false&createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=zheing
+      - SPRING_DATASOURCE_PASSWORD=Pa$$w0rd
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=none
+      - SPRING_JPA_SHOW_SQL=true
+      - SERVER_PORT=8080
+      - JAVA_TOOL_OPTIONS=-Xmx512m -Xms256m
+      - TZ=America/Guayaquil
+    networks:
+      - banking-network
+    depends_on:
+      bddmysql:
+        condition: service_healthy
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  bddmysql:
+    image: mysql:8.0.43-bookworm
+    container_name: banking-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=bankingdb
+      - MYSQL_USER=banking_user
+      - MYSQL_PASSWORD=banking_password
+      - MYSQL_ROOT_PASSWORD=root_password
+      - TZ=America/Guayaquil
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./1_create_schema.sql:/docker-entrypoint-initdb.d/1_create_schema.sql
+      - ./2_insert_sample_data.sql:/docker-entrypoint-initdb.d/2_insert_sample_data.sql
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "banking_user", "--password=banking_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    command: --default-authentication-plugin=mysql_native_password
+             --character-set-server=utf8mb4
+             --collation-server=utf8mb4_unicode_ci
+             --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+
+volumes:
+  mysql-data:
+    driver: local
+
+networks:
+  banking-network:
+    driver: bridge
