@@ -13,8 +13,11 @@ import java.util.List;
 @Service
 public class ClienteServiceImpl implements ClienteService {
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    public ClienteServiceImpl(ClienteRepository clienteRepository) {
+        this.clienteRepository = clienteRepository;
+    }
+
+    private final ClienteRepository clienteRepository;
 
     @Override
     @Transactional(readOnly = true)
