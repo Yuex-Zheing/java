@@ -3,11 +3,13 @@ package com.wquimis.demo.onboarding.controller;
 import com.wquimis.demo.onboarding.dto.ErrorDTO;
 import com.wquimis.demo.onboarding.dto.OnboardingRequestDTO;
 import com.wquimis.demo.onboarding.dto.OnboardingResponseDTO;
+import com.wquimis.demo.onboarding.dto.OnboardingAsyncResponseDTO;
 import com.wquimis.demo.onboarding.exceptions.EntityAlreadyExistsException;
 import com.wquimis.demo.onboarding.exceptions.ExternalServiceException;
 import com.wquimis.demo.onboarding.exceptions.OnboardingException;
 import com.wquimis.demo.onboarding.exceptions.ValidationException;
 import com.wquimis.demo.onboarding.services.OnboardingService;
+import com.wquimis.demo.onboarding.services.OnboardingKafkaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -27,9 +29,11 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
+    private final OnboardingKafkaService onboardingKafkaService;
 
-    public OnboardingController(OnboardingService onboardingService) {
+    public OnboardingController(OnboardingService onboardingService, OnboardingKafkaService onboardingKafkaService) {
         this.onboardingService = onboardingService;
+        this.onboardingKafkaService = onboardingKafkaService;
     }
 
     @Operation(
@@ -52,6 +56,32 @@ public class OnboardingController {
     public ResponseEntity<?> crearClienteCompleto(@Valid @RequestBody OnboardingRequestDTO request) {
         try {
             log.info("Recibida solicitud de onboarding para: {}", request.getPersona().getNombres());
+            
+            // Iniciar proceso asíncrono con Kafka
+            String transactionId = onboardingKafkaService.iniciarOnboarding(request);
+            
+            // Crear respuesta inmediata con el ID de transacción
+            OnboardingAsyncResponseDTO response = new OnboardingAsyncResponseDTO();
+            response.setTransactionId(transactionId);
+            response.setStatus("PROCESSING");
+            response.setMessage("Proceso de onboarding iniciado. Use el transactionId para consultar el estado.");
+            
+            log.info("Onboarding iniciado con transactionId: {}", transactionId);
+            return ResponseEntity.accepted().body(response);
+            
+        } catch (Exception e) {
+            log.error("Error al iniciar onboarding: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999",
+                    e.getMessage(),
+                    "Ha ocurrido un error al iniciar el proceso de onboarding"));
+        }
+    }
+
+    @PostMapping("/onboarding/sync")
+    public ResponseEntity<?> crearClienteCompletoSync(@Valid @RequestBody OnboardingRequestDTO request) {
+        try {
+            log.info("Recibida solicitud de onboarding síncrono para: {}", request.getPersona().getNombres());
             
             OnboardingResponseDTO response = onboardingService.procesarOnboarding(request);
             
