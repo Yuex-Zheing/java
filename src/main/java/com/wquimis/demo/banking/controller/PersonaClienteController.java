@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,11 +30,15 @@ import java.util.stream.Collectors;
 @Tag(name = "Gestión de Personas y Clientes", description = "APIs para gestionar personas y clientes")
 public class PersonaClienteController {
 
-    @Autowired
-    private PersonaService personaService;
+    private final PersonaService personaService;
+    private final ClienteService clienteService;
+    private final DtoConverter dtoConverter;
 
-    @Autowired
-    private ClienteService clienteService;
+    public PersonaClienteController(PersonaService personaService, ClienteService clienteService, DtoConverter dtoConverter) {
+        this.personaService = personaService;
+        this.clienteService = clienteService;
+        this.dtoConverter = dtoConverter;
+    }
 
     // Endpoints para Personas
     @Operation(summary = "Obtener todas las personas activas")
@@ -44,7 +47,7 @@ public class PersonaClienteController {
         List<Persona> personas = personaService.findAll();
         List<PersonaDTO> personasDTO = personas.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getEstado()))
-                .map(DtoConverter::toPersonaDTO)
+                .map(dtoConverter::toPersonaDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(personasDTO);
     }
@@ -55,7 +58,7 @@ public class PersonaClienteController {
             @Parameter(description = "ID de la persona") @PathVariable Long id) {
         Persona persona = personaService.findById(id);
         if (persona != null) {
-            return ResponseEntity.ok(DtoConverter.toPersonaDTO(persona));
+            return ResponseEntity.ok(dtoConverter.toPersonaDTO(persona));
         }
         return ResponseEntity.notFound().build();
     }
@@ -64,9 +67,9 @@ public class PersonaClienteController {
     @PostMapping("/personas")
     public ResponseEntity<PersonaDTO> createPersona(
             @Parameter(description = "Datos de la persona") @Valid @RequestBody PersonaDTO personaDTO) {
-        Persona persona = DtoConverter.toPersona(personaDTO);
+        Persona persona = dtoConverter.toPersona(personaDTO);
         Persona savedPersona = personaService.save(persona);
-        return ResponseEntity.ok(DtoConverter.toPersonaDTO(savedPersona));
+        return ResponseEntity.ok(dtoConverter.toPersonaDTO(savedPersona));
     }
 
     @Operation(summary = "Actualizar una persona existente")
@@ -76,9 +79,9 @@ public class PersonaClienteController {
             @Parameter(description = "Datos actualizados de la persona") @Valid @RequestBody PersonaUpdateDTO personaUpdateDTO) {
         try {
             Persona existingPersona = personaService.findById(id);
-            Persona persona = DtoConverter.updatePersonaFromDTO(personaUpdateDTO, existingPersona);
+            Persona persona = dtoConverter.updatePersonaFromDTO(personaUpdateDTO, existingPersona);
             Persona updatedPersona = personaService.update(id, persona);
-            return ResponseEntity.ok(DtoConverter.toPersonaDTO(updatedPersona));
+            return ResponseEntity.ok(dtoConverter.toPersonaDTO(updatedPersona));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorDTO.of("ERR_001", 
@@ -111,7 +114,7 @@ public class PersonaClienteController {
         List<Cliente> clientes = clienteService.findAll();
         List<ClienteDTO> clientesDTO = clientes.stream()
                 .filter(c -> Boolean.TRUE.equals(c.getEstado()))
-                .map(DtoConverter::toClienteDTO)
+                .map(dtoConverter::toClienteDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(clientesDTO);
     }
@@ -122,7 +125,7 @@ public class PersonaClienteController {
             @Parameter(description = "ID del cliente") @PathVariable Long id) {
         Cliente cliente = clienteService.findById(id);
         if (cliente != null) {
-            return ResponseEntity.ok(DtoConverter.toClienteDTO(cliente));
+            return ResponseEntity.ok(dtoConverter.toClienteDTO(cliente));
         }
         return ResponseEntity.notFound().build();
     }
@@ -135,10 +138,10 @@ public class PersonaClienteController {
             // Verificar que exista la persona
             Persona persona = personaService.findById(createClienteDTO.getPersonaId());
             
-            Cliente cliente = DtoConverter.createClienteFromDTO(createClienteDTO);
+            Cliente cliente = dtoConverter.createClienteFromDTO(createClienteDTO);
             cliente.setPersona(persona);
             Cliente savedCliente = clienteService.save(cliente);
-            return ResponseEntity.ok(DtoConverter.toClienteDTO(savedCliente));
+            return ResponseEntity.ok(dtoConverter.toClienteDTO(savedCliente));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorDTO.of("ERR_005", 
@@ -164,7 +167,7 @@ public class PersonaClienteController {
             existingCliente.setEstado(updateClienteDTO.getEstado());
             
             Cliente updatedCliente = clienteService.update(id, existingCliente);
-            return ResponseEntity.ok(DtoConverter.toClienteDTO(updatedCliente));
+            return ResponseEntity.ok(dtoConverter.toClienteDTO(updatedCliente));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorDTO.of("ERR_007", 

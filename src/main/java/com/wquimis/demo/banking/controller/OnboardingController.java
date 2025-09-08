@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,11 +22,13 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Onboarding", description = "API para el proceso de onboarding de nuevos clientes")
 public class OnboardingController {
 
-    @Autowired
-    private OnboardingService onboardingService;
+    private final OnboardingService onboardingService;
+    private final DtoConverter dtoConverter;
 
-    @Autowired
-    private DtoConverter dtoConverter;
+    public OnboardingController(OnboardingService onboardingService, DtoConverter dtoConverter) {
+        this.onboardingService = onboardingService;
+        this.dtoConverter = dtoConverter;
+    }
 
     @Operation(summary = "Crear nuevo cliente bancario", description = "Crea una nueva persona con su respectivo cliente y cuenta bancaria")
     @ApiResponses(value = {

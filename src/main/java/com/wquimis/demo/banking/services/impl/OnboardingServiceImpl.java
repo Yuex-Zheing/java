@@ -10,7 +10,6 @@ import com.wquimis.demo.banking.services.ClienteService;
 import com.wquimis.demo.banking.services.CuentaService;
 import com.wquimis.demo.banking.services.OnboardingService;
 import com.wquimis.demo.banking.services.PersonaService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +18,18 @@ import java.time.LocalDateTime;
 @Service
 public class OnboardingServiceImpl implements OnboardingService {
 
-    @Autowired
-    private PersonaService personaService;
+    private final PersonaService personaService;
+    private final ClienteService clienteService;
+    private final CuentaService cuentaService;
+    private final CuentaRepository cuentaRepository;
 
-    @Autowired
-    private ClienteService clienteService;
-
-    @Autowired
-    private CuentaService cuentaService;
-
-    @Autowired
-    private CuentaRepository cuentaRepository;
+    public OnboardingServiceImpl(PersonaService personaService, ClienteService clienteService, 
+                               CuentaService cuentaService, CuentaRepository cuentaRepository) {
+        this.personaService = personaService;
+        this.clienteService = clienteService;
+        this.cuentaService = cuentaService;
+        this.cuentaRepository = cuentaRepository;
+    }
 
     @Override
     @Transactional

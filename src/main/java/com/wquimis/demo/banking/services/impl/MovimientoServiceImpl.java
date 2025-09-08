@@ -6,7 +6,6 @@ import com.wquimis.demo.banking.exceptions.SaldoNoDisponibleException;
 import com.wquimis.demo.banking.repository.MovimientoRepository;
 import com.wquimis.demo.banking.services.MovimientoService;
 import com.wquimis.demo.banking.services.CuentaService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
@@ -18,11 +17,13 @@ import java.util.List;
 @Service
 public class MovimientoServiceImpl implements MovimientoService {
 
-    @Autowired
-    private MovimientoRepository movimientoRepository;
+    private final MovimientoRepository movimientoRepository;
+    private final CuentaService cuentaService;
 
-    @Autowired
-    private CuentaService cuentaService;
+    public MovimientoServiceImpl(MovimientoRepository movimientoRepository, CuentaService cuentaService) {
+        this.movimientoRepository = movimientoRepository;
+        this.cuentaService = cuentaService;
+    }
 
     @Override
     @Transactional(readOnly = true)

@@ -22,7 +22,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -41,17 +40,18 @@ import java.util.stream.Collectors;
 @Tag(name = "Gestión de Cuentas y Movimientos", description = "APIs para gestionar cuentas y movimientos")
 public class CuentaMovimientoController {
 
-    @Autowired
-    private CuentaService cuentaService;
+    private final CuentaService cuentaService;
+    private final MovimientoService movimientoService;
+    private final ClienteService clienteService;
+    private final DtoConverter dtoConverter;
 
-    @Autowired
-    private MovimientoService movimientoService;
-
-    @Autowired
-    private ClienteService clienteService;
-
-    @Autowired
-    private DtoConverter dtoConverter;
+    public CuentaMovimientoController(CuentaService cuentaService, MovimientoService movimientoService, 
+                                    ClienteService clienteService, DtoConverter dtoConverter) {
+        this.cuentaService = cuentaService;
+        this.movimientoService = movimientoService;
+        this.clienteService = clienteService;
+        this.dtoConverter = dtoConverter;
+    }
 
     // Endpoints para Cuentas
     @Operation(summary = "Obtener todas las cuentas activas")

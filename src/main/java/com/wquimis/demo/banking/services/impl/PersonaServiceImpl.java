@@ -4,7 +4,6 @@ import com.wquimis.demo.banking.entities.Persona;
 import com.wquimis.demo.banking.exceptions.PersonaExistenteException;
 import com.wquimis.demo.banking.repository.PersonaRepository;
 import com.wquimis.demo.banking.services.PersonaService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
@@ -13,8 +12,11 @@ import java.util.List;
 @Service
 public class PersonaServiceImpl implements PersonaService {
 
-    @Autowired
-    private PersonaRepository personaRepository;
+    private final PersonaRepository personaRepository;
+
+    public PersonaServiceImpl(PersonaRepository personaRepository) {
+        this.personaRepository = personaRepository;
+    }
 
     @Override
     @Transactional(readOnly = true)

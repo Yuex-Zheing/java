@@ -4,7 +4,6 @@ import com.wquimis.demo.banking.entities.Cuenta;
 import com.wquimis.demo.banking.exceptions.CuentaExistenteException;
 import com.wquimis.demo.banking.repository.CuentaRepository;
 import com.wquimis.demo.banking.services.CuentaService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
@@ -14,8 +13,11 @@ import java.util.List;
 @Service
 public class CuentaServiceImpl implements CuentaService {
 
-    @Autowired
-    private CuentaRepository cuentaRepository;
+    private final CuentaRepository cuentaRepository;
+
+    public CuentaServiceImpl(CuentaRepository cuentaRepository) {
+        this.cuentaRepository = cuentaRepository;
+    }
 
     @Override
     @Transactional(readOnly = true)
