@@ -1,0 +1,566 @@
+openapi: 3.0.3
+info:
+  title: Personas y Clientes Service API
+  description: |
+    API REST para la gestión de personas y clientes en el sistema bancario.
+    Este microservicio maneja el registro, consulta, actualización y eliminación
+    de personas físicas y su conversión a clientes del banco.
+  version: 1.0.0
+  contact:
+    name: Banking System Development Team
+    email: dev@bankingsystem.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8081
+    description: Servidor de desarrollo local
+  - url: http://personas-clientes-service:8081
+    description: Servidor en contenedor Docker
+
+tags:
+  - name: Personas
+    description: Operaciones relacionadas con el manejo de personas físicas
+  - name: Clientes
+    description: Operaciones relacionadas con el manejo de clientes bancarios
+
+paths:
+  # ===== ENDPOINTS DE PERSONAS =====
+  /api/personas:
+    get:
+      tags:
+        - Personas
+      summary: Obtener todas las personas activas
+      description: Retorna la lista de todas las personas con estado activo
+      responses:
+        '200':
+          description: Lista de personas obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonaDTO'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    post:
+      tags:
+        - Personas
+      summary: Crear una nueva persona
+      description: Registra una nueva persona en el sistema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaDTO'
+      responses:
+        '200':
+          description: Persona creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaDTO'
+        '409':
+          description: Conflicto - La persona ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/personas/{id}:
+    get:
+      tags:
+        - Personas
+      summary: Obtener persona por ID
+      description: Retorna los detalles de una persona específica
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único de la persona
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Persona encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaDTO'
+        '404':
+          description: Persona no encontrada
+    
+    put:
+      tags:
+        - Personas
+      summary: Actualizar persona existente
+      description: Actualiza los datos de una persona existente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único de la persona
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonaUpdateDTO'
+      responses:
+        '200':
+          description: Persona actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaDTO'
+        '404':
+          description: Persona no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    delete:
+      tags:
+        - Personas
+      summary: Eliminar persona
+      description: Elimina una persona del sistema (cambio de estado)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único de la persona
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Persona eliminada exitosamente
+        '404':
+          description: Persona no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/personas/identificacion/{identificacion}:
+    get:
+      tags:
+        - Personas
+      summary: Obtener persona por identificación
+      description: Busca una persona por su número de identificación
+      parameters:
+        - name: identificacion
+          in: path
+          required: true
+          description: Número de identificación de la persona
+          schema:
+            type: string
+            maxLength: 10
+      responses:
+        '200':
+          description: Persona encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonaDTO'
+        '404':
+          description: Persona no encontrada
+
+  # ===== ENDPOINTS DE CLIENTES =====
+  /api/clientes:
+    get:
+      tags:
+        - Clientes
+      summary: Obtener todos los clientes activos
+      description: Retorna la lista de todos los clientes con estado activo
+      responses:
+        '200':
+          description: Lista de clientes obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClienteDTO'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    post:
+      tags:
+        - Clientes
+      summary: Crear un nuevo cliente
+      description: Registra un nuevo cliente asociado a una persona existente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClienteDTO'
+      responses:
+        '200':
+          description: Cliente creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteDTO'
+        '409':
+          description: Conflicto - El cliente ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '404':
+          description: Persona no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/clientes/{id}:
+    get:
+      tags:
+        - Clientes
+      summary: Obtener cliente por ID
+      description: Retorna los detalles de un cliente específico
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único del cliente
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteDTO'
+        '404':
+          description: Cliente no encontrado
+    
+    put:
+      tags:
+        - Clientes
+      summary: Actualizar cliente existente
+      description: Actualiza los datos de un cliente existente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único del cliente
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClienteDTO'
+      responses:
+        '200':
+          description: Cliente actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteDTO'
+        '404':
+          description: Cliente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    delete:
+      tags:
+        - Clientes
+      summary: Eliminar cliente
+      description: Elimina un cliente del sistema (cambio de estado)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único del cliente
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Cliente eliminado exitosamente
+        '404':
+          description: Cliente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/clientes/persona/{personaId}:
+    get:
+      tags:
+        - Clientes
+      summary: Obtener cliente por ID de persona
+      description: Busca un cliente por el ID de su persona asociada
+      parameters:
+        - name: personaId
+          in: path
+          required: true
+          description: ID de la persona asociada al cliente
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteDTO'
+        '404':
+          description: Cliente no encontrado
+
+  /api/clientes/nombre-usuario/{nombreUsuario}:
+    get:
+      tags:
+        - Clientes
+      summary: Obtener cliente por nombre de usuario
+      description: Busca un cliente por su nombre de usuario único
+      parameters:
+        - name: nombreUsuario
+          in: path
+          required: true
+          description: Nombre de usuario del cliente
+          schema:
+            type: string
+            maxLength: 50
+      responses:
+        '200':
+          description: Cliente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteDTO'
+        '404':
+          description: Cliente no encontrado
+
+components:
+  schemas:
+    PersonaDTO:
+      type: object
+      required:
+        - identificacionpersona
+        - nombres
+        - genero
+        - edad
+      properties:
+        idpersona:
+          type: integer
+          format: int64
+          description: ID único de la persona (generado automáticamente)
+          readOnly: true
+        identificacionpersona:
+          type: string
+          maxLength: 10
+          description: Número de identificación único de la persona
+          example: "0919395186"
+        nombres:
+          type: string
+          maxLength: 150
+          description: Nombres completos de la persona
+          example: "William Quimis"
+        genero:
+          type: string
+          maxLength: 1
+          enum: ["M", "F"]
+          description: Género de la persona (M=Masculino, F=Femenino)
+          example: "M"
+        edad:
+          type: integer
+          minimum: 18
+          maximum: 120
+          description: Edad de la persona
+          example: 35
+        direccion:
+          type: string
+          maxLength: 300
+          description: Dirección de residencia
+          example: "Av. Principal 123"
+        telefono:
+          type: string
+          maxLength: 15
+          description: Número de teléfono
+          example: "0991234567"
+        estado:
+          type: boolean
+          description: Estado activo/inactivo de la persona
+          default: true
+          example: true
+
+    PersonaUpdateDTO:
+      type: object
+      required:
+        - nombres
+        - genero
+        - edad
+        - estado
+      properties:
+        nombres:
+          type: string
+          maxLength: 150
+          description: Nombres completos de la persona
+          example: "Juan Carlos Pérez"
+        genero:
+          type: string
+          maxLength: 1
+          enum: ["M", "F"]
+          description: Género de la persona
+          example: "M"
+        edad:
+          type: integer
+          minimum: 18
+          maximum: 120
+          description: Edad de la persona
+          example: 36
+        direccion:
+          type: string
+          maxLength: 300
+          description: Dirección de residencia
+          example: "Av. Principal 123"
+        telefono:
+          type: string
+          maxLength: 15
+          description: Número de teléfono
+          example: "0991234567"
+        estado:
+          type: boolean
+          description: Estado activo/inactivo de la persona
+          example: true
+
+    ClienteDTO:
+      type: object
+      properties:
+        idcliente:
+          type: integer
+          format: int64
+          description: ID único del cliente
+          readOnly: true
+        persona:
+          $ref: '#/components/schemas/PersonaDTO'
+        nombreusuario:
+          type: string
+          maxLength: 50
+          description: Nombre de usuario único del cliente
+          example: "wquimis"
+        contrasena:
+          type: string
+          maxLength: 100
+          description: Contraseña del cliente (encriptada)
+          writeOnly: true
+          example: "PassQuimis123*"
+        estado:
+          type: boolean
+          description: Estado activo/inactivo del cliente
+          default: true
+          example: true
+
+    CreateClienteDTO:
+      type: object
+      required:
+        - personaId
+        - nombreUsuario
+        - contrasena
+      properties:
+        personaId:
+          type: integer
+          format: int64
+          description: ID de la persona a asociar con el cliente
+          example: 1
+        nombreUsuario:
+          type: string
+          maxLength: 50
+          description: Nombre de usuario único del cliente
+          example: "wquimis"
+        contrasena:
+          type: string
+          maxLength: 100
+          description: Contraseña del cliente
+          example: "PassQuimis123*"
+
+    UpdateClienteDTO:
+      type: object
+      required:
+        - nombreUsuario
+        - contrasena
+        - estado
+      properties:
+        nombreUsuario:
+          type: string
+          maxLength: 50
+          description: Nombre de usuario único del cliente
+          example: "jperez2024"
+        contrasena:
+          type: string
+          maxLength: 100
+          description: Nueva contraseña del cliente
+          example: "NewPass123*"
+        estado:
+          type: boolean
+          description: Estado activo/inactivo del cliente
+          example: true
+
+    ErrorDTO:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Código de error
+          example: "ERR_001"
+        mensaje:
+          type: string
+          description: Mensaje de error técnico
+          example: "Persona no encontrada"
+        descripcion:
+          type: string
+          description: Descripción detallada del error
+          example: "La persona que intenta buscar no existe en el sistema"

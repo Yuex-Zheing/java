@@ -1,0 +1,733 @@
+openapi: 3.0.3
+info:
+  title: Cuentas y Movimientos Service API
+  description: |
+    API REST para la gestión de cuentas bancarias y movimientos financieros.
+    Este microservicio maneja la creación, consulta, actualización de cuentas,
+    así como la realización de movimientos (depósitos, retiros) y generación de reportes.
+  version: 1.0.0
+  contact:
+    name: Banking System Development Team
+    email: dev@bankingsystem.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8082
+    description: Servidor de desarrollo local
+  - url: http://cuentas-movimientos-service:8082
+    description: Servidor en contenedor Docker
+
+tags:
+  - name: Cuentas
+    description: Operaciones relacionadas con el manejo de cuentas bancarias
+  - name: Movimientos
+    description: Operaciones relacionadas con movimientos financieros
+  - name: Reportes
+    description: Generación de reportes de actividad bancaria
+
+paths:
+  # ===== ENDPOINTS DE CUENTAS =====
+  /api/cuentas:
+    get:
+      tags:
+        - Cuentas
+      summary: Obtener todas las cuentas
+      description: Retorna la lista de todas las cuentas en el sistema
+      responses:
+        '200':
+          description: Lista de cuentas obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CuentaDTO'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    post:
+      tags:
+        - Cuentas
+      summary: Crear una nueva cuenta
+      description: |
+        Crea una nueva cuenta bancaria y automáticamente genera un movimiento de 
+        depósito inicial por el saldo inicial especificado para mantener la trazabilidad bancaria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CuentaDTO'
+      responses:
+        '200':
+          description: Cuenta creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaDTO'
+        '409':
+          description: Conflicto - Ya existe una cuenta con el número proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/cuentas/activas:
+    get:
+      tags:
+        - Cuentas
+      summary: Obtener todas las cuentas activas
+      description: Retorna la lista de todas las cuentas con estado activo
+      responses:
+        '200':
+          description: Lista de cuentas activas obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CuentaDTO'
+
+  /api/cuentas/{numeroCuenta}:
+    get:
+      tags:
+        - Cuentas
+      summary: Obtener cuenta por número
+      description: Retorna los detalles de una cuenta específica
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número único de la cuenta
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cuenta encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaDTO'
+        '404':
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    put:
+      tags:
+        - Cuentas
+      summary: Actualizar cuenta existente
+      description: Actualiza los datos de una cuenta existente (principalmente el estado)
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número único de la cuenta
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCuentaDTO'
+      responses:
+        '200':
+          description: Cuenta actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CuentaDTO'
+        '404':
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    delete:
+      tags:
+        - Cuentas
+      summary: Eliminar cuenta (desactivar)
+      description: Elimina una cuenta del sistema cambiando su estado a inactivo
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número único de la cuenta
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cuenta eliminada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '404':
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/cuentas/cliente/{idCliente}:
+    get:
+      tags:
+        - Cuentas
+      summary: Obtener cuentas por ID de cliente
+      description: Retorna todas las cuentas asociadas a un cliente específico
+      parameters:
+        - name: idCliente
+          in: path
+          required: true
+          description: ID del cliente
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Cuentas del cliente obtenidas exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CuentaDTO'
+
+  /api/cuentas/tipo/{tipoCuenta}:
+    get:
+      tags:
+        - Cuentas
+      summary: Obtener cuentas por tipo
+      description: Retorna todas las cuentas de un tipo específico
+      parameters:
+        - name: tipoCuenta
+          in: path
+          required: true
+          description: Tipo de cuenta
+          schema:
+            type: string
+            enum: [AHORROS, CORRIENTE]
+      responses:
+        '200':
+          description: Cuentas del tipo especificado obtenidas exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CuentaDTO'
+        '400':
+          description: Tipo de cuenta inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  # ===== ENDPOINTS DE MOVIMIENTOS =====
+  /api/movimientos:
+    get:
+      tags:
+        - Movimientos
+      summary: Obtener todos los movimientos
+      description: Retorna la lista de todos los movimientos del sistema
+      responses:
+        '200':
+          description: Lista de movimientos obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovimientoDTO'
+
+  /api/movimientos/{id}:
+    get:
+      tags:
+        - Movimientos
+      summary: Obtener movimiento por ID
+      description: Retorna los detalles de un movimiento específico
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único del movimiento
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Movimiento encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoDTO'
+        '404':
+          description: Movimiento no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    put:
+      tags:
+        - Movimientos
+      summary: Actualizar movimiento
+      description: Actualiza los datos de un movimiento existente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único del movimiento
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoDTO'
+      responses:
+        '200':
+          description: Movimiento actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoDTO'
+        '404':
+          description: Movimiento no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+    
+    delete:
+      tags:
+        - Movimientos
+      summary: Anular movimiento
+      description: |
+        Anula un movimiento realizando dos operaciones:
+        1. Cambia la descripción del movimiento original por 'Operacion Anulada' con timestamp
+        2. Crea un movimiento de reverso con referencia al ID original
+        El movimiento anulado tendrá estado=false, el movimiento de reverso tendrá estado=true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID único del movimiento a anular
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Movimiento anulado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '404':
+          description: Movimiento no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '422':
+          description: No hay saldo suficiente para revertir el movimiento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '409':
+          description: El movimiento no puede ser revertido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/movimientos/cuenta/{numeroCuenta}:
+    get:
+      tags:
+        - Movimientos
+      summary: Obtener movimientos por cuenta
+      description: Retorna todos los movimientos de una cuenta específica
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número de la cuenta
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Movimientos de la cuenta obtenidos exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovimientoDTO'
+    
+    post:
+      tags:
+        - Movimientos
+      summary: Realizar nuevo movimiento
+      description: Realiza un nuevo movimiento (depósito o retiro) en una cuenta específica
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número de la cuenta donde realizar el movimiento
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoDTO'
+      responses:
+        '200':
+          description: Movimiento realizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoDTO'
+        '404':
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '422':
+          description: Saldo insuficiente para realizar el retiro o cuenta inactiva
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+        '400':
+          description: Datos del movimiento inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+  /api/movimientos/cuenta/{numeroCuenta}/fechas:
+    get:
+      tags:
+        - Movimientos
+      summary: Obtener movimientos por cuenta y fechas
+      description: Retorna los movimientos de una cuenta en un rango de fechas específico
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número de la cuenta
+          schema:
+            type: integer
+        - name: fechaInicio
+          in: query
+          required: true
+          description: Fecha inicial del rango (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: fechaFin
+          in: query
+          required: true
+          description: Fecha final del rango (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Movimientos en el rango de fechas obtenidos exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovimientoDTO'
+
+  # ===== ENDPOINTS DE REPORTES =====
+  /api/reportes/cuenta/{numeroCuenta}:
+    get:
+      tags:
+        - Reportes
+      summary: Generar reporte de cuenta
+      description: Genera un reporte detallado de una cuenta con sus movimientos en un rango de fechas
+      parameters:
+        - name: numeroCuenta
+          in: path
+          required: true
+          description: Número de la cuenta
+          schema:
+            type: integer
+        - name: fechaInicio
+          in: query
+          required: true
+          description: Fecha inicial del reporte (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: fechaFin
+          in: query
+          required: true
+          description: Fecha final del reporte (formato YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Reporte generado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteCuentaDTO'
+        '404':
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+
+components:
+  schemas:
+    CuentaDTO:
+      type: object
+      required:
+        - numeroCuenta
+        - idCliente
+        - tipoCuenta
+        - saldoInicial
+      properties:
+        numeroCuenta:
+          type: integer
+          description: Número único de la cuenta
+          example: 100001
+        idCliente:
+          type: integer
+          format: int64
+          description: ID del cliente propietario de la cuenta
+          example: 1
+        tipoCuenta:
+          type: string
+          enum: [AHORROS, CORRIENTE]
+          description: Tipo de cuenta bancaria
+          example: "AHORROS"
+        saldoInicial:
+          type: number
+          format: double
+          minimum: 0
+          description: Saldo inicial de la cuenta
+          example: 100.00
+        saldoDisponible:
+          type: number
+          format: double
+          description: Saldo disponible actual en la cuenta
+          readOnly: true
+          example: 100.00
+        estado:
+          type: boolean
+          description: Estado activo/inactivo de la cuenta
+          default: true
+          example: true
+        fechaCreacion:
+          type: string
+          format: date-time
+          description: Fecha y hora de creación de la cuenta
+          readOnly: true
+        fechaCierre:
+          type: string
+          format: date-time
+          description: Fecha y hora de cierre de la cuenta
+          readOnly: true
+
+    UpdateCuentaDTO:
+      type: object
+      required:
+        - estado
+      properties:
+        estado:
+          type: boolean
+          description: Estado activo/inactivo de la cuenta
+          example: false
+
+    MovimientoDTO:
+      type: object
+      required:
+        - tipomovimiento
+        - montomovimiento
+        - movimientodescripcion
+      properties:
+        idmovimiento:
+          type: integer
+          format: int64
+          description: ID único del movimiento
+          readOnly: true
+        numeroCuenta:
+          type: integer
+          description: Número de cuenta asociada al movimiento
+          readOnly: true
+        fechamovimiento:
+          type: string
+          format: date
+          description: Fecha del movimiento
+          readOnly: true
+        horamovimiento:
+          type: string
+          format: time
+          description: Hora del movimiento
+          readOnly: true
+        tipomovimiento:
+          type: string
+          enum: [DEPOSITO, RETIRO]
+          description: Tipo de movimiento
+          example: "DEPOSITO"
+        montomovimiento:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Monto del movimiento
+          example: 500.00
+        saldodisponible:
+          type: number
+          format: double
+          description: Saldo disponible después del movimiento
+          readOnly: true
+          example: 600.00
+        movimientodescripcion:
+          type: string
+          maxLength: 300
+          description: Descripción del movimiento
+          example: "Depósito inicial"
+        estado:
+          type: boolean
+          description: Estado del movimiento (true=activo, false=anulado)
+          readOnly: true
+          default: true
+
+    ReporteCuentaDTO:
+      type: object
+      properties:
+        FechaReporte:
+          type: string
+          description: Fecha de generación del reporte
+          example: "8/9/2025"
+        Cuenta:
+          type: object
+          properties:
+            Numero:
+              type: string
+              description: Número de cuenta
+              example: "100001"
+            TipoCuenta:
+              type: string
+              description: Tipo de cuenta
+              example: "AHORROS"
+            SaldoInicial:
+              type: string
+              description: Saldo inicial de la cuenta
+              example: "100.0000"
+            SaldoDisponible:
+              type: string
+              description: Saldo disponible actual
+              example: "600.0000"
+            Estado:
+              type: string
+              description: Estado de la cuenta
+              example: "ACTIVA"
+            FechaCreacion:
+              type: string
+              description: Fecha de creación de la cuenta
+              example: "08/09/2025"
+            Movimientos:
+              type: array
+              items:
+                type: object
+                properties:
+                  Fecha:
+                    type: string
+                    example: "08/09/2025"
+                  Hora:
+                    type: string
+                    example: "14:30:15"
+                  Descripcion:
+                    type: string
+                    example: "Depósito inicial"
+                  Tipo:
+                    type: string
+                    example: "DEPOSITO"
+                  Monto:
+                    type: string
+                    example: "500.0000"
+                  "Saldo Disponible":
+                    type: number
+                    example: 600.0
+                  id:
+                    type: integer
+                    example: 1
+
+    ErrorDTO:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Código de error
+          example: "ERR_001"
+        mensaje:
+          type: string
+          description: Mensaje de error técnico
+          example: "Cuenta no encontrada"
+        descripcion:
+          type: string
+          description: Descripción detallada del error
+          example: "La cuenta especificada no existe en el sistema"
+
+  examples:
+    CuentaAhorros:
+      summary: Ejemplo de cuenta de ahorros
+      value:
+        numeroCuenta: 100001
+        idCliente: 1
+        tipoCuenta: "AHORROS"
+        saldoInicial: 100.00
+        estado: true
+    
+    CuentaCorriente:
+      summary: Ejemplo de cuenta corriente
+      value:
+        numeroCuenta: 200001
+        idCliente: 1
+        tipoCuenta: "CORRIENTE"
+        saldoInicial: 1000.00
+        estado: true
+    
+    MovimientoDeposito:
+      summary: Ejemplo de depósito
+      value:
+        tipomovimiento: "DEPOSITO"
+        montomovimiento: 500.00
+        movimientodescripcion: "Depósito inicial"
+    
+    MovimientoRetiro:
+      summary: Ejemplo de retiro
+      value:
+        tipomovimiento: "RETIRO"
+        montomovimiento: 100.00
+        movimientodescripcion: "Retiro cajero automático"

@@ -1,0 +1,394 @@
+openapi: 3.0.3
+info:
+  title: Onboarding Service API
+  description: |
+    API REST para el onboarding completo de clientes en el sistema bancario.
+    Este microservicio orquesta la creación integral de clientes: registra la persona,
+    crea el cliente asociado, y establece una cuenta bancaria con número especial 
+    (prefijo 99) y depósito inicial automático.
+  version: 1.0.0
+  contact:
+    name: Banking System Development Team
+    email: dev@bankingsystem.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Servidor de desarrollo local
+  - url: http://onboarding-service:8080
+    description: Servidor en contenedor Docker
+
+externalDocs:
+  description: Documentación del proceso de onboarding
+  url: https://docs.bankingsystem.com/onboarding
+
+tags:
+  - name: Onboarding
+    description: Operaciones de onboarding completo de clientes
+  - name: Health
+    description: Verificaciones de estado del servicio
+
+paths:
+  /api/onboarding:
+    post:
+      tags:
+        - Onboarding
+      summary: Crear cliente completo
+      description: |
+        Orquesta la creación completa de un cliente realizando las siguientes operaciones:
+        
+        1. **Crear persona**: Registra la persona en el servicio personas-clientes-service
+        2. **Crear cliente**: Asocia un cliente a la persona creada
+        3. **Crear cuenta**: Establece una cuenta bancaria con número especial (prefijo 99, rango: 990001-999999)
+        4. **Depósito inicial**: El saldo inicial se registra automáticamente como movimiento por el servicio de cuentas
+        
+        **Características especiales de las cuentas de onboarding:**
+        - Números de cuenta con prefijo 99 (990001-999999)
+        - Creación automática del depósito inicial
+        - Trazabilidad completa desde el primer movimiento
+        
+        **Manejo de errores:**
+        - Valida la existencia previa de personas y clientes
+        - Verifica la disponibilidad de números de cuenta
+        - Proporciona rollback automático en caso de fallo
+      operationId: crearClienteCompleto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingRequestDTO'
+            examples:
+              cliente_ahorros:
+                $ref: '#/components/examples/OnboardingAhorros'
+              cliente_corriente:
+                $ref: '#/components/examples/OnboardingCorriente'
+      responses:
+        '200':
+          description: Cliente creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingResponseDTO'
+              examples:
+                onboarding_exitoso:
+                  $ref: '#/components/examples/OnboardingExitoso'
+        '400':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+              examples:
+                datos_invalidos:
+                  summary: Datos de entrada inválidos
+                  value:
+                    codigo: "ERR_VALIDATION_001"
+                    mensaje: "El campo 'nombres' es requerido"
+                    descripcion: "Los datos proporcionados no son válidos"
+        '409':
+          description: Conflicto - El cliente ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+              examples:
+                persona_existente:
+                  summary: Persona ya existe
+                  value:
+                    codigo: "ERR_CONFLICT_001"
+                    mensaje: "Ya existe una persona con la identificación 0919395186"
+                    descripcion: "La persona especificada ya existe en el sistema"
+                cliente_existente:
+                  summary: Cliente ya existe
+                  value:
+                    codigo: "ERR_CONFLICT_001"
+                    mensaje: "Ya existe un cliente con el nombre de usuario 'mgonzalez'"
+                    descripcion: "El cliente especificado ya existe en el sistema"
+        '502':
+          description: Error en servicios externos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+              examples:
+                servicio_externo_error:
+                  summary: Error en servicio externo
+                  value:
+                    codigo: "ERR_EXT_001"
+                    mensaje: "Error en servicio externo: Conexión rechazada al servicio personas-clientes"
+                    descripcion: "Ha ocurrido un error al comunicarse con los servicios externos"
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDTO'
+              examples:
+                error_interno:
+                  summary: Error interno
+                  value:
+                    codigo: "ERR_999"
+                    mensaje: "Error inesperado durante el proceso"
+                    descripcion: "Ha ocurrido un error inesperado"
+
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: Verificar estado del servicio
+      description: Endpoint para verificar que el servicio de onboarding está funcionando correctamente
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Servicio funcionando correctamente
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Onboarding Service is UP"
+
+components:
+  schemas:
+    OnboardingRequestDTO:
+      type: object
+      required:
+        - persona
+        - cliente
+        - cuenta
+      properties:
+        persona:
+          $ref: '#/components/schemas/PersonaOnboardingDTO'
+        cliente:
+          $ref: '#/components/schemas/ClienteOnboardingDTO'
+        cuenta:
+          $ref: '#/components/schemas/CuentaOnboardingDTO'
+      example:
+        persona:
+          identificacionpersona: "0919395186"
+          nombres: "María González"
+          genero: "F"
+          edad: 28
+          direccion: "Av. Principal 456"
+          telefono: "0987654321"
+        cliente:
+          nombreUsuario: "mgonzalez"
+          contrasena: "SecurePass123*"
+        cuenta:
+          tipoCuenta: "AHORROS"
+          saldoInicial: 250.00
+
+    PersonaOnboardingDTO:
+      type: object
+      required:
+        - identificacionpersona
+        - nombres
+        - genero
+        - edad
+      properties:
+        identificacionpersona:
+          type: string
+          maxLength: 10
+          pattern: '^[0-9]{10}$'
+          description: Número de identificación único de la persona (10 dígitos)
+          example: "0919395186"
+        nombres:
+          type: string
+          maxLength: 150
+          minLength: 2
+          description: Nombres completos de la persona
+          example: "María González"
+        genero:
+          type: string
+          maxLength: 1
+          enum: ["M", "F"]
+          description: Género de la persona (M=Masculino, F=Femenino)
+          example: "F"
+        edad:
+          type: integer
+          minimum: 18
+          maximum: 120
+          description: Edad de la persona (debe ser mayor de edad)
+          example: 28
+        direccion:
+          type: string
+          maxLength: 300
+          description: Dirección de residencia
+          example: "Av. Principal 456"
+        telefono:
+          type: string
+          maxLength: 15
+          pattern: '^[0-9+\-\s()]{7,15}$'
+          description: Número de teléfono
+          example: "0987654321"
+
+    ClienteOnboardingDTO:
+      type: object
+      required:
+        - nombreUsuario
+        - contrasena
+      properties:
+        nombreUsuario:
+          type: string
+          maxLength: 50
+          minLength: 3
+          pattern: '^[a-zA-Z0-9_]{3,50}$'
+          description: Nombre de usuario único del cliente (letras, números y guion bajo)
+          example: "mgonzalez"
+        contrasena:
+          type: string
+          maxLength: 100
+          minLength: 8
+          description: |
+            Contraseña del cliente. Debe cumplir con los siguientes criterios:
+            - Mínimo 8 caracteres
+            - Al menos una letra mayúscula
+            - Al menos una letra minúscula
+            - Al menos un número
+            - Al menos un carácter especial
+          example: "SecurePass123*"
+
+    CuentaOnboardingDTO:
+      type: object
+      required:
+        - tipoCuenta
+        - saldoInicial
+      properties:
+        tipoCuenta:
+          type: string
+          enum: [AHORROS, CORRIENTE]
+          description: Tipo de cuenta bancaria a crear
+          example: "AHORROS"
+        saldoInicial:
+          type: number
+          format: double
+          minimum: 0.01
+          maximum: 999999.99
+          multipleOf: 0.01
+          description: Saldo inicial de la cuenta (mínimo $0.01)
+          example: 250.00
+
+    OnboardingResponseDTO:
+      type: object
+      properties:
+        mensaje:
+          type: string
+          description: Mensaje de confirmación del onboarding
+          example: "Cliente creado exitosamente"
+        personaId:
+          type: integer
+          format: int64
+          description: ID de la persona creada
+          example: 1
+        clienteId:
+          type: integer
+          format: int64
+          description: ID del cliente creado
+          example: 1
+        numeroCuenta:
+          type: integer
+          description: Número de la cuenta creada (con prefijo 99)
+          example: 990001
+        tipoCuenta:
+          type: string
+          enum: [AHORROS, CORRIENTE]
+          description: Tipo de cuenta creada
+          example: "AHORROS"
+        saldoInicial:
+          type: number
+          format: double
+          description: Saldo inicial de la cuenta
+          example: 250.00
+        fechaCreacion:
+          type: string
+          format: date-time
+          description: Fecha y hora de creación del cliente
+          example: "2025-09-08T14:30:15.123Z"
+
+    ErrorDTO:
+      type: object
+      required:
+        - codigo
+        - mensaje
+        - descripcion
+      properties:
+        codigo:
+          type: string
+          description: Código único de error para identificación y seguimiento
+          enum:
+            - "ERR_VALIDATION_001"
+            - "ERR_CONFLICT_001"
+            - "ERR_EXT_001"
+            - "ERR_ONB_001"
+            - "ERR_999"
+          example: "ERR_CONFLICT_001"
+        mensaje:
+          type: string
+          description: Mensaje técnico del error
+          example: "Ya existe una persona con la identificación 0919395186"
+        descripcion:
+          type: string
+          description: Descripción detallada y amigable del error
+          example: "La persona especificada ya existe en el sistema"
+
+  examples:
+    OnboardingAhorros:
+      summary: Onboarding con cuenta de ahorros
+      description: Ejemplo de onboarding para crear un cliente con cuenta de ahorros
+      value:
+        persona:
+          identificacionpersona: "0919395186"
+          nombres: "María González"
+          genero: "F"
+          edad: 28
+          direccion: "Av. Principal 456"
+          telefono: "0987654321"
+        cliente:
+          nombreUsuario: "mgonzalez"
+          contrasena: "SecurePass123*"
+        cuenta:
+          tipoCuenta: "AHORROS"
+          saldoInicial: 250.00
+
+    OnboardingCorriente:
+      summary: Onboarding con cuenta corriente
+      description: Ejemplo de onboarding para crear un cliente con cuenta corriente
+      value:
+        persona:
+          identificacionpersona: "0912345678"
+          nombres: "Carlos Mendoza"
+          genero: "M"
+          edad: 35
+          direccion: "Calle Secundaria 789"
+          telefono: "0991234567"
+        cliente:
+          nombreUsuario: "cmendoza"
+          contrasena: "BusinessPass456*"
+        cuenta:
+          tipoCuenta: "CORRIENTE"
+          saldoInicial: 1000.00
+
+    OnboardingExitoso:
+      summary: Respuesta exitosa de onboarding
+      description: Ejemplo de respuesta cuando el onboarding se completa exitosamente
+      value:
+        mensaje: "Cliente creado exitosamente"
+        personaId: 1
+        clienteId: 1
+        numeroCuenta: 990001
+        tipoCuenta: "AHORROS"
+        saldoInicial: 250.00
+        fechaCreacion: "2025-09-08T14:30:15.123Z"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT para autenticación (cuando esté implementado)
+
+# Configuración de seguridad global (para futuras implementaciones)
+# security:
+#   - bearerAuth: []
