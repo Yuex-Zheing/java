@@ -2,11 +2,133 @@
 	"info": {
 		"_postman_id": "3c146fca-c1e4-440f-8787-0905ef936ce8",
 		"name": "Banking Microservices API Collection",
-		"description": "Colección de endpoints para los microservicios de banca: personas-clientes-service (puerto 8081) y cuentas-movimientos-service (puerto 8082)",
+		"description": "Colección de endpoints para los microservicios de banca: onboarding-service (puerto 8080), personas-clientes-service (puerto 8081) y cuentas-movimientos-service (puerto 8082)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "22533587"
 	},
 	"item": [
+		{
+			"name": "Onboarding Service (Port 8080)",
+			"item": [
+				{
+					"name": "Crear Cliente Completo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"persona\": {\n    \"identificacionpersona\": \"0919395186\",\n    \"nombres\": \"María González\",\n    \"genero\": \"F\",\n    \"edad\": 28,\n    \"direccion\": \"Av. Principal 456\",\n    \"telefono\": \"0987654321\"\n  },\n  \"cliente\": {\n    \"nombreUsuario\": \"mgonzalez\",\n    \"contrasena\": \"SecurePass123*\"\n  },\n  \"cuenta\": {\n    \"tipoCuenta\": \"AHORROS\",\n    \"saldoInicial\": 250.00\n  }\n}"
+						},
+						"url": {
+							"raw": "http://{{host}}:8080/api/onboarding",
+							"protocol": "http",
+							"host": [
+								"{{host}}"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"onboarding"
+							]
+						},
+						"description": "Orquesta la creación completa de un cliente: crea persona, cliente, cuenta (con número especial prefijo 99) y depósito inicial automático"
+					}
+				},
+				{
+					"name": "Crear Cliente con Cuenta Corriente",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"persona\": {\n    \"identificacionpersona\": \"0912345678\",\n    \"nombres\": \"Carlos Mendoza\",\n    \"genero\": \"M\",\n    \"edad\": 35,\n    \"direccion\": \"Calle Secundaria 789\",\n    \"telefono\": \"0991234567\"\n  },\n  \"cliente\": {\n    \"nombreUsuario\": \"cmendoza\",\n    \"contrasena\": \"BusinessPass456*\"\n  },\n  \"cuenta\": {\n    \"tipoCuenta\": \"CORRIENTE\",\n    \"saldoInicial\": 1000.00\n  }\n}"
+						},
+						"url": {
+							"raw": "http://{{host}}:8080/api/onboarding",
+							"protocol": "http",
+							"host": [
+								"{{host}}"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"onboarding"
+							]
+						},
+						"description": "Ejemplo de onboarding con cuenta corriente y mayor saldo inicial"
+					}
+				},
+				{
+					"name": "Health Check Onboarding",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{host}}:8080/actuator/health",
+							"protocol": "http",
+							"host": [
+								"{{host}}"
+							],
+							"port": "8080",
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Verifica el estado del microservicio de onboarding"
+					}
+				},
+				{
+					"name": "API Docs Onboarding",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{host}}:8080/api-docs",
+							"protocol": "http",
+							"host": [
+								"{{host}}"
+							],
+							"port": "8080",
+							"path": [
+								"api-docs"
+							]
+						},
+						"description": "Documentación OpenAPI del servicio de onboarding"
+					}
+				},
+				{
+					"name": "Swagger UI Onboarding",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{host}}:8080/swagger-ui.html",
+							"protocol": "http",
+							"host": [
+								"{{host}}"
+							],
+							"port": "8080",
+							"path": [
+								"swagger-ui.html"
+							]
+						},
+						"description": "Interfaz Swagger del servicio de onboarding"
+					}
+				}
+			],
+			"description": "Endpoints del microservicio de onboarding (Puerto 8080) - Orquestación completa de creación de clientes"
+		},
 		{
 			"name": "Personas-Clientes Service (Port 8081)",
 			"item": [
@@ -707,6 +829,34 @@
 				}
 			],
 			"description": "Endpoints para verificar el estado de los microservicios"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Pre-request script para logging",
+					"console.log('Ejecutando: ' + pm.info.requestName);"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Test script para validaciones básicas",
+					"pm.test('Status code is successful', function () {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+					"});",
+					"",
+					"pm.test('Response time is less than 5000ms', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});"
+				]
+			}
 		}
 	],
 	"variable": [

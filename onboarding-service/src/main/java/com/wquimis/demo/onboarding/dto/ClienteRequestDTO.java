@@ -1,0 +1,19 @@
+package com.wquimis.demo.onboarding.dto;
+
+import jakarta.validation.constraints.*;
+import lombok.Data;
+
+@Data
+public class ClienteRequestDTO {
+    
+    @NotBlank(message = "El nombre de usuario es requerido")
+    @Size(min = 4, max = 20, message = "El nombre de usuario debe tener entre 4 y 20 caracteres")
+    @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "El nombre de usuario solo puede contener letras, números y guiones bajos")
+    private String nombreUsuario;
+    
+    @NotBlank(message = "La contraseña es requerida")
+    @Size(min = 8, max = 20, message = "La contraseña debe tener entre 8 y 20 caracteres")
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$", 
+             message = "La contraseña debe contener al menos una letra minúscula, una mayúscula, un número y un carácter especial")
+    private String contrasena;
+}
