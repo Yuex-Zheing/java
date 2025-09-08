@@ -104,12 +104,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://{{host}}:8080/api/personas",
+							"raw": "http://{{host}}:8081/api/personas",
 							"protocol": "http",
 							"host": [
 								"{{host}}"
 							],
-							"port": "8080",
+							"port": "8081",
 							"path": [
 								"api",
 								"personas"
@@ -124,12 +124,12 @@
 								"method": "GET",
 								"header": [],
 								"url": {
-									"raw": "http://{{host}}:8080/api/personas",
+									"raw": "http://{{host}}:8081/api/personas",
 									"protocol": "http",
 									"host": [
 										"{{host}}"
 									],
-									"port": "8080",
+									"port": "8081",
 									"path": [
 										"api",
 										"personas"
