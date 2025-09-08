@@ -335,24 +335,39 @@ public class CuentaMovimientoController {
         }
     }
 
-    @Operation(summary = "Eliminar movimiento")
+    @Operation(summary = "Anular movimiento", 
+               description = "Anula un movimiento realizando dos operaciones: " +
+                           "1. Cambia la descripción del movimiento original por 'Operacion Anulada' con timestamp y milisegundos, " +
+                           "2. Crea un movimiento de reverso con referencia al ID original. " +
+                           "El movimiento anulado tendrá estado=false (esReverso=true en respuesta), " +
+                           "el movimiento de reverso tendrá estado=true (esReverso=false en respuesta)")
     @DeleteMapping("/movimientos/{id}")
     public ResponseEntity<?> deleteMovimiento(@PathVariable Long id) {
         try {
             movimientoService.deleteById(id);
             return ResponseEntity.ok(ErrorDTO.of("SUCCESS",
-                "Movimiento eliminado correctamente",
-                "El movimiento ha sido anulado exitosamente"));
+                "Movimiento anulado correctamente",
+                "El movimiento original ha sido anulado y se ha creado un movimiento de reverso."));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorDTO.of("ERR_001",
                     "Movimiento no encontrado con ID: " + id,
-                    "El movimiento que intenta eliminar no existe"));
+                    "El movimiento que intenta anular no existe"));
+        } catch (SaldoNoDisponibleException e) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ErrorDTO.of("ERR_003",
+                    e.getMessage(),
+                    "No hay saldo suficiente para revertir el movimiento"));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorDTO.of("ERR_004",
+                    e.getMessage(),
+                    "El movimiento no puede ser revertido"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorDTO.of("ERR_999",
                     e.getMessage(),
-                    "Ha ocurrido un error al eliminar el movimiento"));
+                    "Ha ocurrido un error al anular el movimiento"));
         }
     }
 

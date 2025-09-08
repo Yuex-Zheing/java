@@ -62,6 +62,13 @@ public class CuentaServiceImpl implements CuentaService {
 
     @Override
     @Transactional
+    public Cuenta saveOrUpdate(Cuenta cuenta) {
+        // Este método actualiza una cuenta existente sin validar duplicados
+        return cuentaRepository.save(cuenta);
+    }
+
+    @Override
+    @Transactional
     public Cuenta update(Integer numeroCuenta, Cuenta cuenta) {
         Cuenta existingCuenta = findByNumeroCuenta(numeroCuenta);
         // Permitir actualizar estado

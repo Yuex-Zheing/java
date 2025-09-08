@@ -36,7 +36,9 @@ public class MovimientoDTO {
     @JsonProperty("saldo")
     private BigDecimal saldo;
 
-    // Campo interno para procesamiento
-    @JsonIgnore
+    @JsonProperty("esReverso")
+    private Boolean esReverso;
+
+    @JsonProperty("numeroCuenta")
     private Integer numeroCuenta;
 }

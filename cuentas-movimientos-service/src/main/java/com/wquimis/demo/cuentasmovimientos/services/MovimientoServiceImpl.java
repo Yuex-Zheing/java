@@ -11,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -71,23 +73,71 @@ public class MovimientoServiceImpl implements MovimientoService {
 
     @Override
     public void deleteById(Long id) {
-        Movimiento movimiento = findById(id);
+        Movimiento movimientoOriginal = findById(id);
         
-        // Revertir el movimiento en la cuenta
-        Cuenta cuenta = movimiento.getCuenta();
-        if (movimiento.getTipomovimiento() == Movimiento.TipoMovimiento.DEPOSITO) {
-            // Si fue un depósito, debitar el monto
-            cuenta.debitar(movimiento.getMontomovimiento());
-        } else {
-            // Si fue un retiro, acreditar el monto
-            cuenta.acreditar(movimiento.getMontomovimiento());
+        // Verificar que el movimiento no haya sido ya revertido
+        if (!movimientoOriginal.getEstado()) {
+            throw new IllegalStateException("No se puede revertir un movimiento que ya ha sido revertido");
         }
         
-        // Guardar la cuenta actualizada
-        cuentaService.save(cuenta);
+        Cuenta cuenta = movimientoOriginal.getCuenta();
         
-        // Eliminar el movimiento
-        movimientoRepository.deleteById(id);
+        // Crear el movimiento de reverso
+        Movimiento movimientoReverso = new Movimiento();
+        movimientoReverso.setCuenta(cuenta);
+        movimientoReverso.setFechamovimiento(LocalDate.now());
+        movimientoReverso.setHoramovimiento(LocalTime.now());
+        movimientoReverso.setEstado(true); // El reverso es una operación correcta
+        
+        // Determinar el tipo de movimiento reverso y el monto
+        BigDecimal montoReverso = movimientoOriginal.getMontomovimiento().abs(); // Usar valor absoluto
+        
+        if (movimientoOriginal.getTipomovimiento() == Movimiento.TipoMovimiento.DEPOSITO) {
+            // Si el original fue un depósito, hacer un retiro de reverso
+            movimientoReverso.setTipomovimiento(Movimiento.TipoMovimiento.RETIRO);
+            movimientoReverso.setMovimientodescripcion(
+                movimientoOriginal.getMovimientodescripcion() + " [REVERSO ID#" + movimientoOriginal.getIdmovimiento() + "]");
+            
+            // Verificar que hay saldo suficiente para el reverso
+            if (!cuenta.tieneSaldoSuficiente(montoReverso)) {
+                throw new SaldoNoDisponibleException(
+                    "No hay saldo suficiente para revertir el depósito. Saldo actual: " + 
+                    cuenta.getSaldodisponible() + ", Monto requerido: " + montoReverso);
+            }
+            
+            // Debitar de la cuenta
+            cuenta.debitar(montoReverso);
+            movimientoReverso.setMontomovimiento(montoReverso);
+            
+        } else {
+            // Si el original fue un retiro, hacer un depósito de reverso
+            movimientoReverso.setTipomovimiento(Movimiento.TipoMovimiento.DEPOSITO);
+            movimientoReverso.setMovimientodescripcion(
+                movimientoOriginal.getMovimientodescripcion() + " [REVERSO ID#" + movimientoOriginal.getIdmovimiento() + "]");
+            
+            // Acreditar a la cuenta
+            cuenta.acreditar(montoReverso);
+            movimientoReverso.setMontomovimiento(montoReverso);
+        }
+        
+        // Establecer el saldo disponible después del reverso
+        movimientoReverso.setSaldodisponible(cuenta.getSaldodisponible());
+        
+        // Anular el movimiento original: cambiar descripción y marcar como reversado
+        LocalDateTime fechaHoraAnulacion = LocalDateTime.now();
+        String descripcionAnulacion = String.format("Operacion Anulada %s.%03d", 
+            fechaHoraAnulacion.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+            fechaHoraAnulacion.getNano() / 1_000_000); // Convertir nanosegundos a milisegundos
+        
+        movimientoOriginal.setMovimientodescripcion(descripcionAnulacion);
+        movimientoOriginal.setEstado(false); // Marcado como reversado (esReverso = true en DTO)
+        
+        // El movimiento de reverso tiene estado = true (esReverso = false en DTO) ya que es una operación nueva y correcta
+        
+        // Guardar los cambios
+        cuentaService.saveOrUpdate(cuenta);
+        movimientoRepository.save(movimientoOriginal); // Actualizar el estado y descripción del original
+        movimientoRepository.save(movimientoReverso);   // Guardar el movimiento de reverso
     }
 
     @Override
@@ -104,13 +154,9 @@ public class MovimientoServiceImpl implements MovimientoService {
             }
             // Debitar de la cuenta
             cuenta.debitar(monto);
-            // El monto se guarda como negativo para retiros
-            movimiento.setMontomovimiento(monto.negate());
         } else {
             // Acreditar a la cuenta
             cuenta.acreditar(monto);
-            // El monto se guarda como positivo para depósitos
-            movimiento.setMontomovimiento(monto);
         }
 
         // Establecer fechas y hora actuales
@@ -121,7 +167,7 @@ public class MovimientoServiceImpl implements MovimientoService {
         movimiento.setSaldodisponible(cuenta.getSaldodisponible());
 
         // Guardar la cuenta actualizada
-        cuentaService.save(cuenta);
+        cuentaService.saveOrUpdate(cuenta);
 
         // Guardar y retornar el movimiento
         return movimientoRepository.save(movimiento);

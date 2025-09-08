@@ -53,6 +53,11 @@ public class DtoConverter {
         dto.setHora(movimiento.getHoramovimiento().toString());
         dto.setSaldo(movimiento.getSaldodisponible());
         dto.setMovimientodescripcion(movimiento.getMovimientodescripcion());
+        
+        // esReverso será true SOLO si el estado es false (operación anulada/reversada)
+        // Los movimientos de reverso (que tienen estado = true) muestran esReverso = false
+        dto.setEsReverso(!movimiento.getEstado());
+        
         return dto;
     }
 }
