@@ -56,9 +56,10 @@ public class OnboardingService {
                 cuentaCreada.getSaldoDisponible().toString() : 
                 cuentaCreada.getSaldoInicial().toString());
             
-            response.setMensaje("Onboarding completado exitosamente. La cuenta ya incluye el depósito inicial automáticamente.");
+            response.setMensaje("Onboarding completado exitosamente. Cliente creado con cuenta activa y saldo disponible.");
             
-            log.info("Onboarding completado exitosamente para cuenta: {}", numeroCuenta);
+            log.info("Onboarding completado exitosamente para cuenta: {} con saldo: {}", 
+                     numeroCuenta, cuentaCreada.getSaldoInicial());
             return response;
             
         } catch (Exception e) {

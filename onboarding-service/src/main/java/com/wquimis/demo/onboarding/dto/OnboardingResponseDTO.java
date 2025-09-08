@@ -17,9 +17,6 @@ public class OnboardingResponseDTO {
     private String tipoCuenta;
     private String saldoDisponible;
     
-    private Long movimientoId;
-    private String movimientoDescripcion;
-    
     private String mensaje;
     private LocalDateTime fechaCreacion;
     

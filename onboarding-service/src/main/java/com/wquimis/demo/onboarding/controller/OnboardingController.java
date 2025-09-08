@@ -35,9 +35,9 @@ public class OnboardingController {
         description = "Orquesta la creación completa de un cliente: " +
                      "1. Crea la persona en personas-clientes-service, " +
                      "2. Crea el cliente asociado a la persona, " +
-                     "3. Crea la cuenta con número especial (prefijo 99), " +
-                     "4. Si hay saldo inicial > 0, crea un movimiento de depósito inicial. " +
-                     "Las cuentas creadas por onboarding tendrán números con prefijo 99 (máximo 6 dígitos)."
+                     "3. Crea la cuenta con número especial (prefijo 99) y saldo inicial automático. " +
+                     "Las cuentas creadas por onboarding tendrán números con prefijo 99 (rango: 990001-999999). " +
+                     "El depósito inicial se crea automáticamente por el servicio de cuentas."
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Cliente creado exitosamente"),
@@ -46,7 +46,7 @@ public class OnboardingController {
         @ApiResponse(responseCode = "502", description = "Error en servicios externos"),
         @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
-    @PostMapping("/onboarding/banking")
+    @PostMapping("/onboarding")
     public ResponseEntity<?> crearClienteCompleto(@Valid @RequestBody OnboardingRequestDTO request) {
         try {
             log.info("Recibida solicitud de onboarding para: {}", request.getPersona().getNombres());
