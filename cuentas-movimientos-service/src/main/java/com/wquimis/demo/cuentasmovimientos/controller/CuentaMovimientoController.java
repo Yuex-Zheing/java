@@ -25,7 +25,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -128,12 +130,33 @@ public class CuentaMovimientoController {
         }
     }
 
-    @Operation(summary = "Crear nueva cuenta")
+    @Operation(summary = "Crear nueva cuenta",
+               description = "Crea una nueva cuenta y automáticamente genera un movimiento de depósito inicial " +
+                           "por el saldo inicial especificado para mantener la trazabilidad bancaria")
     @PostMapping("/cuentas")
     public ResponseEntity<?> createCuenta(@Valid @RequestBody CuentaDTO cuentaDto) {
         try {
             var cuenta = dtoConverter.toEntity(cuentaDto);
-            return ResponseEntity.ok(dtoConverter.toDto(cuentaService.save(cuenta)));
+            Cuenta cuentaCreada = cuentaService.save(cuenta);
+            
+            // Crear movimiento de depósito inicial si el saldo inicial es mayor a 0
+            if (cuentaCreada.getSaldoinicial() != null && 
+                cuentaCreada.getSaldoinicial().compareTo(BigDecimal.ZERO) > 0) {
+                
+                Movimiento depositoInicial = new Movimiento();
+                depositoInicial.setCuenta(cuentaCreada);
+                depositoInicial.setTipomovimiento(Movimiento.TipoMovimiento.DEPOSITO);
+                depositoInicial.setMontomovimiento(cuentaCreada.getSaldoinicial());
+                depositoInicial.setMovimientodescripcion("Depósito inicial - Apertura de cuenta");
+                depositoInicial.setFechamovimiento(LocalDate.now());
+                depositoInicial.setHoramovimiento(LocalTime.now());
+                depositoInicial.setSaldodisponible(cuentaCreada.getSaldoinicial());
+                depositoInicial.setEstado(true);
+                
+                movimientoService.save(depositoInicial);
+            }
+            
+            return ResponseEntity.ok(dtoConverter.toDto(cuentaCreada));
         } catch (CuentaExistenteException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorDTO.of("ERR_008",
