@@ -7,6 +7,7 @@ import com.wquimis.demo.personasclientes.dto.ClienteDTO;
 import com.wquimis.demo.personasclientes.dto.CreateClienteDTO;
 import com.wquimis.demo.personasclientes.dto.UpdateClienteDTO;
 import com.wquimis.demo.personasclientes.exceptions.ClienteExistenteException;
+import com.wquimis.demo.personasclientes.exceptions.PersonaExistenteException;
 import com.wquimis.demo.personasclientes.entities.Persona;
 import com.wquimis.demo.personasclientes.entities.Cliente;
 import com.wquimis.demo.personasclientes.services.PersonaService;
@@ -63,13 +64,29 @@ public class PersonaClienteController {
         return ResponseEntity.notFound().build();
     }
 
+    @Operation(summary = "Obtener una persona por número de identificación")
+    @GetMapping("/personas/identificacion/{identificacion}")
+    public ResponseEntity<PersonaDTO> getPersonaByIdentificacion(
+            @Parameter(description = "Número de identificación de la persona") @PathVariable String identificacion) {
+        Persona persona = personaService.findByIdentificacionOptional(identificacion);
+        if (persona != null && Boolean.TRUE.equals(persona.getEstado())) {
+            return ResponseEntity.ok(dtoConverter.toPersonaDTO(persona));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     @Operation(summary = "Crear una nueva persona")
     @PostMapping("/personas")
-    public ResponseEntity<PersonaDTO> createPersona(
+    public ResponseEntity<?> createPersona(
             @Parameter(description = "Datos de la persona") @Valid @RequestBody PersonaDTO personaDTO) {
-        Persona persona = dtoConverter.toPersona(personaDTO);
-        Persona savedPersona = personaService.save(persona);
-        return ResponseEntity.ok(dtoConverter.toPersonaDTO(savedPersona));
+        try {
+            Persona persona = dtoConverter.toPersona(personaDTO);
+            Persona savedPersona = personaService.save(persona);
+            return ResponseEntity.ok(dtoConverter.toPersonaDTO(savedPersona));
+        } catch (PersonaExistenteException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorDTO("Persona ya existe", e.getMessage()));
+        }
     }
 
     @Operation(summary = "Actualizar una persona existente")
@@ -118,6 +135,38 @@ public class PersonaClienteController {
     public ResponseEntity<ClienteDTO> getClienteById(
             @Parameter(description = "ID del cliente") @PathVariable Long id) {
         Cliente cliente = clienteService.findById(id);
+        if (cliente != null) {
+            return ResponseEntity.ok(dtoConverter.toClienteDTO(cliente));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @Operation(summary = "Obtener un cliente por ID de persona")
+    @GetMapping("/clientes/persona/{personaId}")
+    public ResponseEntity<ClienteDTO> getClienteByPersonaId(
+            @Parameter(description = "ID de la persona") @PathVariable Long personaId) {
+        List<Cliente> clientes = clienteService.findAll();
+        Cliente cliente = clientes.stream()
+                .filter(c -> c.getPersona().getIdpersona().equals(personaId) && Boolean.TRUE.equals(c.getEstado()))
+                .findFirst()
+                .orElse(null);
+        
+        if (cliente != null) {
+            return ResponseEntity.ok(dtoConverter.toClienteDTO(cliente));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @Operation(summary = "Obtener un cliente por nombre de usuario")
+    @GetMapping("/clientes/nombre-usuario/{nombreUsuario}")
+    public ResponseEntity<ClienteDTO> getClienteByNombreUsuario(
+            @Parameter(description = "Nombre de usuario del cliente") @PathVariable String nombreUsuario) {
+        List<Cliente> clientes = clienteService.findAll();
+        Cliente cliente = clientes.stream()
+                .filter(c -> c.getNombreusuario().equals(nombreUsuario) && Boolean.TRUE.equals(c.getEstado()))
+                .findFirst()
+                .orElse(null);
+        
         if (cliente != null) {
             return ResponseEntity.ok(dtoConverter.toClienteDTO(cliente));
         }

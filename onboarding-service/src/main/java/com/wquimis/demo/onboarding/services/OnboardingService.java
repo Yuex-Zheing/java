@@ -2,11 +2,16 @@ package com.wquimis.demo.onboarding.services;
 
 import com.wquimis.demo.onboarding.config.ExternalServicesConfig;
 import com.wquimis.demo.onboarding.dto.*;
+import com.wquimis.demo.onboarding.exceptions.EntityAlreadyExistsException;
+import com.wquimis.demo.onboarding.exceptions.ExternalServiceException;
 import com.wquimis.demo.onboarding.exceptions.OnboardingException;
+import com.wquimis.demo.onboarding.exceptions.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -25,47 +30,330 @@ public class OnboardingService {
         log.info("Iniciando proceso de onboarding para: {}", request.getPersona().getNombres());
         
         try {
-            // Paso 1: Crear persona
-            PersonaDTO personaCreada = crearPersona(request.getPersona());
-            log.info("Persona creada con ID: {}", personaCreada.getId());
+            // Validaciones iniciales
+            validarDatosIniciales(request);
+            
+            // Paso 1: Verificar si la persona ya existe, si no, crearla
+            PersonaDTO personaCreada = obtenerOCrearPersona(request.getPersona());
+            log.info("Persona procesada con ID: {}", personaCreada.getId());
 
-            // Paso 2: Crear cliente
-            ClienteResponseDTO clienteCreado = crearCliente(request.getCliente(), personaCreada.getId());
-            log.info("Cliente creado con ID: {}", clienteCreado.getId());
+            // Paso 2: Verificar si el cliente ya existe, si no, crearlo
+            ClienteResponseDTO clienteCreado = obtenerOCrearCliente(request.getCliente(), personaCreada.getId());
+            log.info("Cliente procesado con ID: {}", clienteCreado.getId());
 
-            // Paso 3: Crear cuenta con número especial (prefijo 99)
-            Integer numeroCuenta = generarNumeroCuentaOnboarding();
-            CuentaDTO cuentaCreada = crearCuenta(request.getCuenta(), clienteCreado.getId(), numeroCuenta);
-            log.info("Cuenta creada con número: {}", cuentaCreada.getNumeroCuenta());
-
-            // Paso 4: NO crear movimiento inicial - el servicio de cuentas ya lo hace automáticamente
-            // cuando el saldo inicial es > 0
+            // Paso 3: Verificar si ya tiene una cuenta activa, si no, crear una nueva
+            CuentaDTO cuentaCreada = obtenerOCrearCuenta(request.getCuenta(), clienteCreado.getId());
+            log.info("Cuenta procesada con número: {}", cuentaCreada.getNumeroCuenta());
 
             // Construir respuesta
-            OnboardingResponseDTO response = new OnboardingResponseDTO();
-            response.setPersonaId(personaCreada.getId());
-            response.setPersonaNombres(personaCreada.getNombres());
-            response.setPersonaIdentificacion(personaCreada.getIdentificacionpersona());
-            
-            response.setClienteId(clienteCreado.getId());
-            response.setClienteNombreUsuario(clienteCreado.getNombreUsuario());
-            
-            response.setNumeroCuenta(cuentaCreada.getNumeroCuenta());
-            response.setTipoCuenta(cuentaCreada.getTipoCuenta());
-            response.setSaldoDisponible(cuentaCreada.getSaldoDisponible() != null ? 
-                cuentaCreada.getSaldoDisponible().toString() : 
-                cuentaCreada.getSaldoInicial().toString());
-            
-            response.setMensaje("Onboarding completado exitosamente. Cliente creado con cuenta activa y saldo disponible.");
+            OnboardingResponseDTO response = construirRespuesta(personaCreada, clienteCreado, cuentaCreada);
             
             log.info("Onboarding completado exitosamente para cuenta: {} con saldo: {}", 
-                     numeroCuenta, cuentaCreada.getSaldoInicial());
+                     cuentaCreada.getNumeroCuenta(), 
+                     cuentaCreada.getSaldoInicial() != null ? cuentaCreada.getSaldoInicial() : cuentaCreada.getSaldoDisponible());
             return response;
             
+        } catch (EntityAlreadyExistsException | ValidationException e) {
+            // Re-lanzar excepciones específicas sin modificar
+            log.warn("Validación falló durante onboarding: {}", e.getMessage());
+            throw e;
+        } catch (WebClientResponseException e) {
+            log.error("Error en comunicación con servicios externos: Status {}, Response: {}", 
+                     e.getStatusCode(), e.getResponseBodyAsString(), e);
+            
+            // Intentar detectar errores de duplicado a nivel de base de datos
+            String responseBody = e.getResponseBodyAsString();
+            if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR && 
+                responseBody.contains("Duplicate entry")) {
+                
+                if (responseBody.contains("identificacionpersona")) {
+                    throw new EntityAlreadyExistsException("persona", request.getPersona().getIdentificacionpersona(),
+                        "La persona con esta identificación ya existe en el sistema");
+                } else if (responseBody.contains("nombreusuario")) {
+                    throw new EntityAlreadyExistsException("cliente", request.getCliente().getNombreUsuario(),
+                        "El nombre de usuario ya está en uso");
+                } else {
+                    throw new EntityAlreadyExistsException("entidad", "desconocido",
+                        "Ya existe una entidad con estos datos en el sistema");
+                }
+            }
+            
+            throw new ExternalServiceException("Error en servicio externo: " + parseErrorMessage(e), e);
         } catch (Exception e) {
             log.error("Error durante el proceso de onboarding: {}", e.getMessage(), e);
             throw new OnboardingException("Error durante el proceso de onboarding: " + e.getMessage(), e);
         }
+    }
+
+    private void validarDatosIniciales(OnboardingRequestDTO request) {
+        // Validar identificación
+        if (request.getPersona().getIdentificacionpersona() == null || 
+            request.getPersona().getIdentificacionpersona().trim().isEmpty()) {
+            throw new ValidationException("identificacionpersona", "null/empty", 
+                "La identificación de la persona es requerida");
+        }
+        
+        // Validar nombres
+        if (request.getPersona().getNombres() == null || 
+            request.getPersona().getNombres().trim().isEmpty()) {
+            throw new ValidationException("nombres", "null/empty", 
+                "Los nombres de la persona son requeridos");
+        }
+        
+        // Validar nombre de usuario
+        if (request.getCliente().getNombreUsuario() == null || 
+            request.getCliente().getNombreUsuario().trim().isEmpty()) {
+            throw new ValidationException("nombreUsuario", "null/empty", 
+                "El nombre de usuario del cliente es requerido");
+        }
+        
+        // Validar saldo inicial
+        if (request.getCuenta().getSaldoInicial() == null || 
+            request.getCuenta().getSaldoInicial().compareTo(BigDecimal.ZERO) < 0) {
+            throw new ValidationException("saldoInicial", 
+                request.getCuenta().getSaldoInicial() != null ? request.getCuenta().getSaldoInicial().toString() : "null", 
+                "El saldo inicial debe ser mayor o igual a cero");
+        }
+    }
+
+    private PersonaDTO obtenerOCrearPersona(PersonaRequestDTO personaRequest) {
+        try {
+            // Primero intentar obtener la persona por identificación
+            PersonaDTO personaExistente = buscarPersonaPorIdentificacion(personaRequest.getIdentificacionpersona());
+            
+            if (personaExistente != null) {
+                log.info("Persona ya existe con ID: {}, identificación: {}", 
+                        personaExistente.getId(), personaExistente.getIdentificacionpersona());
+                
+                // Validar que los datos coincidan (nombres, género, etc.)
+                validarCoincidenciaPersona(personaExistente, personaRequest);
+                
+                return personaExistente;
+            }
+            
+            // Si no existe, crear nueva persona
+            return crearPersona(personaRequest);
+            
+        } catch (EntityAlreadyExistsException | ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error al procesar persona: {}", e.getMessage(), e);
+            throw new OnboardingException("Error al procesar persona: " + e.getMessage(), e);
+        }
+    }
+
+    private PersonaDTO buscarPersonaPorIdentificacion(String identificacion) {
+        try {
+            log.debug("Buscando persona con identificación: {}", identificacion);
+            
+            return webClientBuilder.build()
+                    .get()
+                    .uri(externalServicesConfig.getPersonasClientes().getPersonasUrl() + "/identificacion/" + identificacion)
+                    .retrieve()
+                    .bodyToMono(PersonaDTO.class)
+                    .timeout(Duration.ofSeconds(30))
+                    .block();
+                    
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                log.debug("Persona no encontrada con identificación: {}", identificacion);
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    private void validarCoincidenciaPersona(PersonaDTO existente, PersonaRequestDTO nuevo) {
+        // Validar que los nombres coincidan (permite variaciones menores)
+        if (!normalizarTexto(existente.getNombres()).equals(normalizarTexto(nuevo.getNombres()))) {
+            throw new ValidationException("nombres", nuevo.getNombres(),
+                String.format("Los nombres no coinciden. Existente: '%s', Nuevo: '%s'", 
+                             existente.getNombres(), nuevo.getNombres()));
+        }
+        
+        // Validar género si está especificado
+        if (nuevo.getGenero() != null && !nuevo.getGenero().equals(existente.getGenero())) {
+            throw new ValidationException("genero", nuevo.getGenero(),
+                String.format("El género no coincide. Existente: '%s', Nuevo: '%s'", 
+                             existente.getGenero(), nuevo.getGenero()));
+        }
+        
+        log.info("Validación de coincidencia de persona exitosa para identificación: {}", 
+                existente.getIdentificacionpersona());
+    }
+
+    private String normalizarTexto(String texto) {
+        return texto != null ? texto.trim().toLowerCase() : "";
+    }
+
+    private ClienteResponseDTO obtenerOCrearCliente(ClienteRequestDTO clienteRequest, Long personaId) {
+        try {
+            // Primero intentar obtener el cliente por persona ID
+            ClienteResponseDTO clienteExistente = buscarClientePorPersonaId(personaId);
+            
+            if (clienteExistente != null) {
+                log.info("Cliente ya existe con ID: {} para persona ID: {}", 
+                        clienteExistente.getId(), personaId);
+                
+                // Validar que el nombre de usuario coincida
+                if (!clienteExistente.getNombreUsuario().equals(clienteRequest.getNombreUsuario())) {
+                    throw new EntityAlreadyExistsException("cliente", personaId.toString(),
+                        String.format("Ya existe un cliente para esta persona con nombre de usuario '%s'. " +
+                                     "No se puede crear otro con nombre '%s'", 
+                                     clienteExistente.getNombreUsuario(), clienteRequest.getNombreUsuario()));
+                }
+                
+                return clienteExistente;
+            }
+            
+            // También verificar si el nombre de usuario ya está en uso
+            ClienteResponseDTO clientePorNombre = buscarClientePorNombreUsuario(clienteRequest.getNombreUsuario());
+            if (clientePorNombre != null) {
+                throw new EntityAlreadyExistsException("cliente", clienteRequest.getNombreUsuario(),
+                    String.format("El nombre de usuario '%s' ya está en uso por otro cliente", 
+                                 clienteRequest.getNombreUsuario()));
+            }
+            
+            // Si no existe, crear nuevo cliente
+            return crearCliente(clienteRequest, personaId);
+            
+        } catch (EntityAlreadyExistsException | ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error al procesar cliente: {}", e.getMessage(), e);
+            throw new OnboardingException("Error al procesar cliente: " + e.getMessage(), e);
+        }
+    }
+
+    private ClienteResponseDTO buscarClientePorPersonaId(Long personaId) {
+        try {
+            log.debug("Buscando cliente para persona ID: {}", personaId);
+            
+            return webClientBuilder.build()
+                    .get()
+                    .uri(externalServicesConfig.getPersonasClientes().getClientesUrl() + "/persona/" + personaId)
+                    .retrieve()
+                    .bodyToMono(ClienteResponseDTO.class)
+                    .timeout(Duration.ofSeconds(30))
+                    .block();
+                    
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                log.debug("Cliente no encontrado para persona ID: {}", personaId);
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    private ClienteResponseDTO buscarClientePorNombreUsuario(String nombreUsuario) {
+        try {
+            log.debug("Buscando cliente con nombre de usuario: {}", nombreUsuario);
+            
+            return webClientBuilder.build()
+                    .get()
+                    .uri(externalServicesConfig.getPersonasClientes().getClientesUrl() + "/nombre-usuario/" + nombreUsuario)
+                    .retrieve()
+                    .bodyToMono(ClienteResponseDTO.class)
+                    .timeout(Duration.ofSeconds(30))
+                    .block();
+                    
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                log.debug("Cliente no encontrado con nombre de usuario: {}", nombreUsuario);
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    private CuentaDTO obtenerOCrearCuenta(CuentaRequestDTO cuentaRequest, Long clienteId) {
+        try {
+            // Buscar cuentas existentes para el cliente
+            CuentaDTO[] cuentasExistentes = buscarCuentasPorClienteId(clienteId);
+            
+            if (cuentasExistentes != null && cuentasExistentes.length > 0) {
+                // Verificar si ya tiene una cuenta del mismo tipo
+                for (CuentaDTO cuenta : cuentasExistentes) {
+                    if (cuenta.getTipoCuenta().equals(cuentaRequest.getTipoCuenta())) {
+                        log.info("Cliente ya tiene una cuenta del tipo '{}' con número: {}", 
+                                cuenta.getTipoCuenta(), cuenta.getNumeroCuenta());
+                        
+                        throw new EntityAlreadyExistsException("cuenta", 
+                            cuenta.getNumeroCuenta().toString(),
+                            String.format("El cliente ya tiene una cuenta de tipo '%s' con número %d. " +
+                                         "No se puede crear otra cuenta del mismo tipo.", 
+                                         cuenta.getTipoCuenta(), cuenta.getNumeroCuenta()));
+                    }
+                }
+            }
+            
+            // Si no tiene cuenta del tipo solicitado, crear una nueva
+            Integer numeroCuenta = generarNumeroCuentaOnboarding();
+            return crearCuenta(cuentaRequest, clienteId, numeroCuenta);
+            
+        } catch (EntityAlreadyExistsException | ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Error al procesar cuenta: {}", e.getMessage(), e);
+            throw new OnboardingException("Error al procesar cuenta: " + e.getMessage(), e);
+        }
+    }
+
+    private CuentaDTO[] buscarCuentasPorClienteId(Long clienteId) {
+        try {
+            log.debug("Buscando cuentas para cliente ID: {}", clienteId);
+            
+            return webClientBuilder.build()
+                    .get()
+                    .uri(externalServicesConfig.getCuentasMovimientos().getCuentasUrl() + "/cliente/" + clienteId)
+                    .retrieve()
+                    .bodyToMono(CuentaDTO[].class)
+                    .timeout(Duration.ofSeconds(30))
+                    .block();
+                    
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                log.debug("No se encontraron cuentas para cliente ID: {}", clienteId);
+                return new CuentaDTO[0];
+            }
+            throw e;
+        }
+    }
+
+    private OnboardingResponseDTO construirRespuesta(PersonaDTO persona, ClienteResponseDTO cliente, CuentaDTO cuenta) {
+        OnboardingResponseDTO response = new OnboardingResponseDTO();
+        response.setPersonaId(persona.getId());
+        response.setPersonaNombres(persona.getNombres());
+        response.setPersonaIdentificacion(persona.getIdentificacionpersona());
+        
+        response.setClienteId(cliente.getId());
+        response.setClienteNombreUsuario(cliente.getNombreUsuario());
+        
+        response.setNumeroCuenta(cuenta.getNumeroCuenta());
+        response.setTipoCuenta(cuenta.getTipoCuenta());
+        response.setSaldoDisponible(cuenta.getSaldoDisponible() != null ? 
+            cuenta.getSaldoDisponible().toString() : 
+            cuenta.getSaldoInicial().toString());
+        
+        response.setMensaje("Onboarding completado exitosamente. Cliente configurado con cuenta activa y saldo disponible.");
+        
+        return response;
+    }
+
+    private String parseErrorMessage(WebClientResponseException e) {
+        try {
+            // Intentar extraer mensaje de error del cuerpo de respuesta
+            String responseBody = e.getResponseBodyAsString();
+            if (responseBody != null && !responseBody.isEmpty()) {
+                // Aquí podrías parsear un JSON de error si los servicios lo devuelven
+                return responseBody;
+            }
+        } catch (Exception ex) {
+            log.debug("No se pudo parsear el mensaje de error: {}", ex.getMessage());
+        }
+        
+        return "HTTP " + e.getStatusCode() + " - " + e.getStatusText();
     }
 
     private PersonaDTO crearPersona(PersonaRequestDTO personaRequest) {
@@ -79,7 +367,7 @@ public class OnboardingService {
             persona.setTelefono(personaRequest.getTelefono());
             persona.setEstado(true);
 
-            log.info("Creando persona: {}", persona.getNombres());
+            log.info("Creando nueva persona: {}", persona.getNombres());
             log.debug("Persona request: {}", persona);
 
             PersonaDTO response = webClientBuilder.build()
@@ -94,6 +382,21 @@ public class OnboardingService {
             log.info("Persona creada exitosamente con ID: {}", response.getId());
             return response;
                     
+        } catch (WebClientResponseException e) {
+            log.error("Error HTTP al crear persona: Status {}, Response: {}", 
+                     e.getStatusCode(), e.getResponseBodyAsString());
+            
+            if (e.getStatusCode() == HttpStatus.CONFLICT) {
+                throw new EntityAlreadyExistsException("persona", personaRequest.getIdentificacionpersona(),
+                    "La persona con esta identificación ya existe");
+            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR && 
+                      e.getResponseBodyAsString().contains("Duplicate entry")) {
+                // Manejo específico para errores de MySQL de clave duplicada
+                throw new EntityAlreadyExistsException("persona", personaRequest.getIdentificacionpersona(),
+                    "La persona con esta identificación ya existe en el sistema");
+            }
+            
+            throw new ExternalServiceException("Error al crear persona: " + parseErrorMessage(e), e);
         } catch (Exception e) {
             log.error("Error al crear persona: {}", e.getMessage(), e);
             throw new OnboardingException("Error al crear persona: " + e.getMessage(), e);
@@ -108,7 +411,7 @@ public class OnboardingService {
             clienteDto.setNombreUsuario(clienteRequest.getNombreUsuario());
             clienteDto.setContrasena(clienteRequest.getContrasena());
             
-            log.info("Creando cliente para persona ID: {}", personaId);
+            log.info("Creando nuevo cliente para persona ID: {}", personaId);
             log.debug("Cliente request: {}", clienteDto);
             
             ClienteResponseDTO response = webClientBuilder.build()
@@ -123,6 +426,21 @@ public class OnboardingService {
             log.info("Cliente creado exitosamente con ID: {}", response.getId());
             return response;
             
+        } catch (WebClientResponseException e) {
+            log.error("Error HTTP al crear cliente: Status {}, Response: {}", 
+                     e.getStatusCode(), e.getResponseBodyAsString());
+            
+            if (e.getStatusCode() == HttpStatus.CONFLICT) {
+                throw new EntityAlreadyExistsException("cliente", clienteRequest.getNombreUsuario(),
+                    "El cliente con este nombre de usuario ya existe");
+            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR && 
+                      e.getResponseBodyAsString().contains("Duplicate entry")) {
+                // Manejo específico para errores de MySQL de clave duplicada
+                throw new EntityAlreadyExistsException("cliente", clienteRequest.getNombreUsuario(),
+                    "Ya existe un cliente para esta persona o el nombre de usuario está en uso");
+            }
+            
+            throw new ExternalServiceException("Error al crear cliente: " + parseErrorMessage(e), e);
         } catch (Exception e) {
             log.error("Error al crear cliente: {}", e.getMessage(), e);
             throw new OnboardingException("Error al crear cliente: " + e.getMessage(), e);
@@ -138,7 +456,7 @@ public class OnboardingService {
             cuentaDto.setTipoCuenta(cuentaRequest.getTipoCuenta());
             cuentaDto.setSaldoInicial(cuentaRequest.getSaldoInicial());
             
-            log.info("Creando cuenta para cliente ID: {} con número: {}", idCliente, numeroCuenta);
+            log.info("Creando nueva cuenta para cliente ID: {} con número: {}", idCliente, numeroCuenta);
             log.debug("Cuenta request: {}", cuentaDto);
             
             CuentaDTO response = webClientBuilder.build()
@@ -153,6 +471,21 @@ public class OnboardingService {
             log.info("Cuenta creada exitosamente con número: {}", response.getNumeroCuenta());
             return response;
             
+        } catch (WebClientResponseException e) {
+            log.error("Error HTTP al crear cuenta: Status {}, Response: {}", 
+                     e.getStatusCode(), e.getResponseBodyAsString());
+            
+            if (e.getStatusCode() == HttpStatus.CONFLICT) {
+                throw new EntityAlreadyExistsException("cuenta", numeroCuenta.toString(),
+                    "La cuenta con este número ya existe");
+            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR && 
+                      e.getResponseBodyAsString().contains("Duplicate entry")) {
+                // Manejo específico para errores de MySQL de clave duplicada
+                throw new EntityAlreadyExistsException("cuenta", numeroCuenta.toString(),
+                    "La cuenta con este número ya existe en el sistema");
+            }
+            
+            throw new ExternalServiceException("Error al crear cuenta: " + parseErrorMessage(e), e);
         } catch (Exception e) {
             log.error("Error al crear cuenta: {}", e.getMessage(), e);
             throw new OnboardingException("Error al crear cuenta: " + e.getMessage(), e);

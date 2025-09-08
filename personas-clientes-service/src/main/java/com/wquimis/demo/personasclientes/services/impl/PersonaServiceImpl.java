@@ -39,6 +39,13 @@ public class PersonaServiceImpl implements PersonaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Persona findByIdentificacionOptional(String identificacion) {
+        return personaRepository.findByIdentificacionpersona(identificacion)
+            .orElse(null);
+    }
+
+    @Override
     @Transactional
     public Persona save(Persona persona) {
         // Verificar si ya existe una persona con la misma identificación

@@ -10,5 +10,6 @@ import java.util.Optional;
 public interface CuentaRepository extends JpaRepository<Cuenta, Integer> {
     List<Cuenta> findByTipocuenta(Cuenta.TipoCuenta tipoCuenta);
     List<Cuenta> findByEstado(Boolean estado);
+    List<Cuenta> findByIdcliente(Long idCliente);
     Optional<Cuenta> findTopByOrderByNumerocuentaDesc();
 }

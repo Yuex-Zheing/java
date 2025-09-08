@@ -44,6 +44,12 @@ public class CuentaServiceImpl implements CuentaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Cuenta> findByIdCliente(Long idCliente) {
+        return cuentaRepository.findByIdcliente(idCliente);
+    }
+
+    @Override
     @Transactional
     public Cuenta save(Cuenta cuenta) {
         // Verificar si ya existe una cuenta con el mismo número

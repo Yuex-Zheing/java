@@ -3,8 +3,10 @@ package com.wquimis.demo.onboarding.controller;
 import com.wquimis.demo.onboarding.dto.ErrorDTO;
 import com.wquimis.demo.onboarding.dto.OnboardingRequestDTO;
 import com.wquimis.demo.onboarding.dto.OnboardingResponseDTO;
+import com.wquimis.demo.onboarding.exceptions.EntityAlreadyExistsException;
 import com.wquimis.demo.onboarding.exceptions.ExternalServiceException;
 import com.wquimis.demo.onboarding.exceptions.OnboardingException;
+import com.wquimis.demo.onboarding.exceptions.ValidationException;
 import com.wquimis.demo.onboarding.services.OnboardingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -56,6 +58,20 @@ public class OnboardingController {
             log.info("Onboarding completado exitosamente para cuenta: {}", response.getNumeroCuenta());
             return ResponseEntity.ok(response);
             
+        } catch (EntityAlreadyExistsException e) {
+            log.warn("Entidad ya existe durante onboarding: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorDTO.of("ERR_CONFLICT_001",
+                    e.getMessage(),
+                    String.format("La %s especificada ya existe en el sistema", e.getEntityType())));
+                    
+        } catch (ValidationException e) {
+            log.warn("Error de validación durante onboarding: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorDTO.of("ERR_VALIDATION_001",
+                    e.getMessage(),
+                    "Los datos proporcionados no son válidos"));
+                    
         } catch (ExternalServiceException e) {
             log.error("Error en servicio externo durante onboarding: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)

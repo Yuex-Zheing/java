@@ -98,13 +98,29 @@ public class CuentaMovimientoController {
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorDTO.of("ERR_001",
-                    "Cuenta no encontrada con número: " + numeroCuenta,
-                    "La cuenta solicitada no existe"));
+                    e.getMessage(),
+                    "Cuenta no encontrada"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("ERR_999", 
                     e.getMessage(),
                     "Ha ocurrido un error al obtener la cuenta"));
+        }
+    }
+
+    @Operation(summary = "Obtener cuentas por ID de cliente")
+    @GetMapping("/cuentas/cliente/{idCliente}")
+    public ResponseEntity<?> getCuentasByCliente(@PathVariable Long idCliente) {
+        try {
+            List<CuentaDTO> cuentas = cuentaService.findByIdCliente(idCliente).stream()
+                    .map(dtoConverter::toDto)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(cuentas);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorDTO.of("ERR_999", 
+                    e.getMessage(),
+                    "Ha ocurrido un error al obtener las cuentas del cliente"));
         }
     }
 
