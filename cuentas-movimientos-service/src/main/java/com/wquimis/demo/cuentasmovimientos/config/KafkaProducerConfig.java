@@ -9,7 +9,6 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JsonSerializer;
-import org.springframework.kafka.transaction.KafkaTransactionManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,9 +18,6 @@ public class KafkaProducerConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
-
-    @Value("${spring.kafka.producer.transaction-id-prefix}")
-    private String transactionIdPrefix;
 
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
@@ -33,12 +29,15 @@ public class KafkaProducerConfig {
         // Deshabilitar información de tipo para compatibilidad entre servicios
         configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
         
-        // Configuración para transacciones
-        configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionIdPrefix);
-        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
-        configProps.put(ProducerConfig.ACKS_CONFIG, "all");
-        configProps.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE);
-        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+        // Configuración optimizada sin transacciones
+        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, false);
+        configProps.put(ProducerConfig.ACKS_CONFIG, "1");
+        configProps.put(ProducerConfig.RETRIES_CONFIG, 0);
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+        configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 30000);
+        configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 10000);
+        configProps.put(ProducerConfig.LINGER_MS_CONFIG, 0);
+        configProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 1);
         
         return new DefaultKafkaProducerFactory<>(configProps);
     }
@@ -46,10 +45,5 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
-    }
-
-    @Bean
-    public KafkaTransactionManager kafkaTransactionManager() {
-        return new KafkaTransactionManager(producerFactory());
     }
 }
