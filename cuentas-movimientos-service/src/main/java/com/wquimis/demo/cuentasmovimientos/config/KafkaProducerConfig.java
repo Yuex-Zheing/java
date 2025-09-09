@@ -30,6 +30,9 @@ public class KafkaProducerConfig {
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         
+        // Deshabilitar información de tipo para compatibilidad entre servicios
+        configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        
         // Configuración para transacciones
         configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionIdPrefix);
         configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);

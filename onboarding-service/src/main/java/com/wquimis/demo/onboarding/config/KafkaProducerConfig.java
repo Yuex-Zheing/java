@@ -20,33 +20,41 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.producer.transaction-id-prefix}")
-    private String transactionIdPrefix;
+    @Value("${spring.application.name}")
+    private String applicationName;
 
     @Bean
-    public ProducerFactory<String, Object> producerFactory() {
+    public ProducerFactory<String, Object> transactionalProducerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         
-        // Configuración para transacciones
-        configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionIdPrefix);
+        // Configuración transaccional e idempotente
+        configProps.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, applicationName + "-tx-");
         configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE);
-        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+        
+        // Configuración de serialización sin headers de tipo
+        configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        
+        // Configuración de performance
+        configProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        configProps.put(ProducerConfig.LINGER_MS_CONFIG, 10);
+        configProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
         
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
     @Bean
-    public KafkaTemplate<String, Object> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+    public KafkaTemplate<String, Object> transactionalKafkaTemplate() {
+        return new KafkaTemplate<>(transactionalProducerFactory());
     }
 
     @Bean
     public KafkaTransactionManager kafkaTransactionManager() {
-        return new KafkaTransactionManager(producerFactory());
+        return new KafkaTransactionManager(transactionalProducerFactory());
     }
 }

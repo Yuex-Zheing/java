@@ -1,4 +1,4 @@
-package com.wquimis.demo.onboarding.dto.kafka;
+package com.wquimis.demo.personasclientes.dto.kafka;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,11 +9,10 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ClienteEventDTO {
+public class RollbackEventDTO {
     private String transactionId;
-    private Long personaId;
-    private String nombreUsuario;
-    private String contrasena;
+    private String failedStep;
+    private String errorMessage;
     private LocalDateTime timestamp;
-    private Long clienteId; // Se llena después de crear el cliente
+    private String rollbackReason;
 }

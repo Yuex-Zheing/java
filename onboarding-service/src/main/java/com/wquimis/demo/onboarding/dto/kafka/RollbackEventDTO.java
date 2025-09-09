@@ -4,18 +4,18 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * DTO para eventos de rollback
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class MovimientoEventDTO {
+public class RollbackEventDTO {
     private String transactionId;
-    private Integer numeroCuenta;
-    private String tipoMovimiento; // DEPOSITO
-    private BigDecimal monto;
-    private String descripcion;
+    private String failedStep;
+    private String errorMessage;
     private LocalDateTime timestamp;
-    private int retryCount;
+    private String rollbackReason;
 }

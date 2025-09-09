@@ -9,7 +9,7 @@ import com.wquimis.demo.onboarding.exceptions.ExternalServiceException;
 import com.wquimis.demo.onboarding.exceptions.OnboardingException;
 import com.wquimis.demo.onboarding.exceptions.ValidationException;
 import com.wquimis.demo.onboarding.services.OnboardingService;
-import com.wquimis.demo.onboarding.services.OnboardingKafkaService;
+import com.wquimis.demo.onboarding.services.OnboardingOrchestratorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -29,11 +29,11 @@ import org.springframework.web.bind.annotation.*;
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
-    private final OnboardingKafkaService onboardingKafkaService;
+    private final OnboardingOrchestratorService orchestratorService;
 
-    public OnboardingController(OnboardingService onboardingService, OnboardingKafkaService onboardingKafkaService) {
+    public OnboardingController(OnboardingService onboardingService, OnboardingOrchestratorService orchestratorService) {
         this.onboardingService = onboardingService;
-        this.onboardingKafkaService = onboardingKafkaService;
+        this.orchestratorService = orchestratorService;
     }
 
     @Operation(
@@ -58,15 +58,9 @@ public class OnboardingController {
             log.info("Recibida solicitud de onboarding para: {}", request.getPersona().getNombres());
             
             // Iniciar proceso asíncrono con Kafka
-            String transactionId = onboardingKafkaService.iniciarOnboarding(request);
+            OnboardingResponseDTO response = orchestratorService.iniciarOnboarding(request);
             
-            // Crear respuesta inmediata con el ID de transacción
-            OnboardingAsyncResponseDTO response = new OnboardingAsyncResponseDTO();
-            response.setTransactionId(transactionId);
-            response.setStatus("PROCESSING");
-            response.setMessage("Proceso de onboarding iniciado. Use el transactionId para consultar el estado.");
-            
-            log.info("Onboarding iniciado con transactionId: {}", transactionId);
+            log.info("Onboarding iniciado con transactionId: {}", response.getTransactionId());
             return ResponseEntity.accepted().body(response);
             
         } catch (Exception e) {
