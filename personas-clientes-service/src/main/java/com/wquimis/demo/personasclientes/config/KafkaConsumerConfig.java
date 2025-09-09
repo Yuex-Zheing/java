@@ -41,7 +41,12 @@ public class KafkaConsumerConfig {
         // Configurar JsonDeserializer
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.wquimis.demo.personasclientes.dto.kafka.PersonaEventDTO");
+        props.put(JsonDeserializer.TYPE_MAPPINGS, "");
+        // Establecer un tipo por defecto para OnboardingEventDTO
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.wquimis.demo.personasclientes.dto.kafka.OnboardingEventDTO");
+        
+        // Configuración para ignorar propiedades desconocidas
+        props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
         
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);

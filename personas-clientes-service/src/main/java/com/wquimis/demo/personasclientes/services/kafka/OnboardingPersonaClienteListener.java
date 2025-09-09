@@ -44,10 +44,12 @@ public class OnboardingPersonaClienteListener {
         log.info("[PERSONA] Procesando creación de persona para transactionId: {}", transactionId);
         
         try {
-            // Validar que el evento sea del tipo correcto
-            if (!"PERSONA".equals(event.getEventType())) {
-                log.warn("[PERSONA] Evento recibido no es de tipo PERSONA: {} para transactionId: {}", 
-                         event.getEventType(), transactionId);
+            // Validar que el evento tenga los datos necesarios de persona
+            String identificacion = getPersonaIdentificacion(event);
+            String nombre = getPersonaNombre(event);
+            
+            if (identificacion == null || identificacion.trim().isEmpty()) {
+                log.warn("[PERSONA] Evento recibido sin identificación de persona para transactionId: {}", transactionId);
                 acknowledgment.acknowledge();
                 return;
             }
@@ -55,15 +57,15 @@ public class OnboardingPersonaClienteListener {
             // Verificar si la persona ya existe (idempotencia)
             Persona personaExistente = null;
             try {
-                personaExistente = personaService.findByIdentificacion(event.getPersonaIdentificacion());
+                personaExistente = personaService.findByIdentificacion(identificacion);
                 log.info("[PERSONA] Persona ya existe con ID: {} para transactionId: {}", 
                         personaExistente.getIdpersona(), transactionId);
                 
                 // Continuar al siguiente paso con la persona existente
                 OnboardingEventDTO clienteEvent = OnboardingEventDTO.createClienteEvent(
                     transactionId,
-                    event.getPersonaIdentificacion(),
-                    generateClientePassword(event.getPersonaNombre()),
+                    identificacion,
+                    generateClientePassword(nombre),
                     true
                 );
                 
@@ -74,7 +76,7 @@ public class OnboardingPersonaClienteListener {
                 // Persona no existe, crear nueva
                 log.info("[PERSONA] Creando nueva persona para transactionId: {}", transactionId);
                 
-                Persona nuevaPersona = crearNuevaPersona(event);
+                Persona nuevaPersona = crearNuevaPersonaFromEvent(event);
                 Persona personaCreada = personaService.save(nuevaPersona);
                 
                 log.info("[PERSONA] Persona creada exitosamente con ID: {} para transactionId: {}", 
@@ -83,8 +85,8 @@ public class OnboardingPersonaClienteListener {
                 // Enviar evento para crear cliente
                 OnboardingEventDTO clienteEvent = OnboardingEventDTO.createClienteEvent(
                     transactionId,
-                    event.getPersonaIdentificacion(),
-                    generateClientePassword(event.getPersonaNombre()),
+                    identificacion,
+                    generateClientePassword(nombre),
                     true
                 );
                 
@@ -269,6 +271,96 @@ public class OnboardingPersonaClienteListener {
     }
 
     // Métodos auxiliares privados
+    
+    /**
+     * Extrae la identificación de persona del evento, maneja ambos formatos
+     */
+    private String getPersonaIdentificacion(OnboardingEventDTO event) {
+        if (event.getPersonaIdentificacion() != null && !event.getPersonaIdentificacion().trim().isEmpty()) {
+            return event.getPersonaIdentificacion();
+        }
+        if (event.getIdentificacionpersona() != null && !event.getIdentificacionpersona().trim().isEmpty()) {
+            return event.getIdentificacionpersona();
+        }
+        return null;
+    }
+    
+    /**
+     * Extrae el nombre de persona del evento, maneja ambos formatos
+     */
+    private String getPersonaNombre(OnboardingEventDTO event) {
+        if (event.getPersonaNombre() != null && !event.getPersonaNombre().trim().isEmpty()) {
+            return event.getPersonaNombre();
+        }
+        if (event.getNombres() != null && !event.getNombres().trim().isEmpty()) {
+            return event.getNombres();
+        }
+        return null;
+    }
+    
+    /**
+     * Convierte el evento recibido al formato OnboardingEventDTO esperado
+     */
+    private OnboardingEventDTO convertirEvento(Object rawEvent) {
+        if (rawEvent instanceof OnboardingEventDTO) {
+            return (OnboardingEventDTO) rawEvent;
+        }
+        
+        // Si el evento viene en formato de Map (JSON deserializado)
+        if (rawEvent instanceof java.util.Map) {
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> eventMap = (java.util.Map<String, Object>) rawEvent;
+            
+            OnboardingEventDTO event = new OnboardingEventDTO();
+            event.setTransactionId((String) eventMap.get("transactionId"));
+            
+            // Mapear campos de persona desde el formato del onboarding service
+            event.setPersonaIdentificacion((String) eventMap.get("identificacionpersona"));
+            event.setPersonaNombre((String) eventMap.get("nombres"));
+            event.setPersonaGenero((String) eventMap.get("genero"));
+            event.setPersonaEdad((Integer) eventMap.get("edad"));
+            event.setPersonaDireccion((String) eventMap.get("direccion"));
+            event.setPersonaTelefono((String) eventMap.get("telefono"));
+            
+            // También mantener compatibilidad con el formato original por si acaso
+            if (event.getPersonaIdentificacion() == null) {
+                event.setPersonaIdentificacion((String) eventMap.get("personaIdentificacion"));
+            }
+            if (event.getPersonaNombre() == null) {
+                event.setPersonaNombre((String) eventMap.get("personaNombre"));
+            }
+            
+            // Campos adicionales para compatibilidad
+            event.setIdentificacionpersona((String) eventMap.get("identificacionpersona"));
+            event.setNombres((String) eventMap.get("nombres"));
+            
+            return event;
+        }
+        
+        // Si no se puede convertir, lanzar excepción
+        throw new IllegalArgumentException("No se puede convertir el evento recibido: " + rawEvent.getClass());
+    }
+    
+    private Persona crearNuevaPersonaFromEvent(OnboardingEventDTO event) {
+        Persona nuevaPersona = new Persona();
+        
+        String identificacion = getPersonaIdentificacion(event);
+        String nombre = getPersonaNombre(event);
+        String genero = event.getPersonaGenero() != null ? event.getPersonaGenero() : event.getGenero();
+        Integer edad = event.getPersonaEdad() != null ? event.getPersonaEdad() : event.getEdad();
+        String direccion = event.getPersonaDireccion() != null ? event.getPersonaDireccion() : event.getDireccion();
+        String telefono = event.getPersonaTelefono() != null ? event.getPersonaTelefono() : event.getTelefono();
+        
+        nuevaPersona.setIdentificacionpersona(identificacion);
+        nuevaPersona.setNombres(nombre);
+        nuevaPersona.setGenero(genero);
+        nuevaPersona.setEdad(edad);
+        nuevaPersona.setDireccion(direccion);
+        nuevaPersona.setTelefono(telefono);
+        nuevaPersona.setEstado(true);
+        
+        return nuevaPersona;
+    }
     
     private Persona crearNuevaPersona(OnboardingEventDTO event) {
         Persona nuevaPersona = new Persona();

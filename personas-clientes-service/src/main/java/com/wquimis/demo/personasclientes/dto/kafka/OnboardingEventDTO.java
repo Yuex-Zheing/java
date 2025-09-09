@@ -1,6 +1,7 @@
 package com.wquimis.demo.personasclientes.dto.kafka;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class OnboardingEventDTO {
     
     // Metadata de transacción
@@ -22,13 +24,22 @@ public class OnboardingEventDTO {
     private int retryCount;
     private String errorMessage;
     
-    // Datos de Persona
+    // Datos de Persona (formato personas-clientes service)
     private String personaIdentificacion;
     private String personaNombre;
     private String personaGenero;
     private Integer personaEdad;
     private String personaDireccion;
     private String personaTelefono;
+    
+    // Datos de Persona (formato onboarding service para compatibilidad)
+    private String identificacionpersona;
+    private String nombres;
+    private String genero;
+    private Integer edad;
+    private String direccion;
+    private String telefono;
+    private String currentStep; // Para compatibilidad con onboarding service
     
     // Datos de Cliente
     private Long clienteId;
@@ -173,5 +184,30 @@ public class OnboardingEventDTO {
         this.status = "FAILED";
         this.errorMessage = errorMessage;
         this.timestamp = LocalDateTime.now();
+    }
+    
+    // Métodos de conveniencia para manejar ambos formatos
+    public String getIdentificacionpersona() {
+        return identificacionpersona != null ? identificacionpersona : personaIdentificacion;
+    }
+    
+    public String getNombres() {
+        return nombres != null ? nombres : personaNombre;
+    }
+    
+    public String getGenero() {
+        return genero != null ? genero : personaGenero;
+    }
+    
+    public Integer getEdad() {
+        return edad != null ? edad : personaEdad;
+    }
+    
+    public String getDireccion() {
+        return direccion != null ? direccion : personaDireccion;
+    }
+    
+    public String getTelefono() {
+        return telefono != null ? telefono : personaTelefono;
     }
 }
