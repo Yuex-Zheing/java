@@ -28,9 +28,6 @@ public class OnboardingPersonaClienteListener {
     private final PersonaService personaService;
     private final ClienteService clienteService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_DELAY_MS = 5000; // 5 segundos
 
     /**
      * Procesa eventos de creación de persona con manejo transaccional
@@ -54,72 +51,40 @@ public class OnboardingPersonaClienteListener {
                 return;
             }
             
-            // Verificar si la persona ya existe (idempotencia)
-            Persona personaExistente = null;
+            // Verificar si la persona ya existe (idempotencia REAL)
             try {
-                personaExistente = personaService.findByIdentificacion(identificacion);
+                Persona personaExistente = personaService.findByIdentificacion(identificacion);
                 log.info("[PERSONA] Persona ya existe con ID: {} para transactionId: {}", 
                         personaExistente.getIdpersona(), transactionId);
                 
-                // Continuar al siguiente paso con la persona existente
-                OnboardingEventDTO clienteEvent = OnboardingEventDTO.createClienteEvent(
-                    transactionId,
-                    identificacion,
-                    generateClientePassword(nombre),
-                    true
-                );
-                
-                enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CLIENTE_TOPIC, transactionId, clienteEvent);
-                log.info("[PERSONA] Evento de cliente enviado para persona existente, transactionId: {}", transactionId);
+                // Solo continuar al siguiente paso, no crear duplicado
+                enviarEventoCliente(transactionId, identificacion, nombre);
+                acknowledgment.acknowledge();
+                return;
                 
             } catch (Exception e) {
-                // Persona no existe, crear nueva
-                log.info("[PERSONA] Creando nueva persona para transactionId: {}", transactionId);
-                
-                Persona nuevaPersona = crearNuevaPersonaFromEvent(event);
-                Persona personaCreada = personaService.save(nuevaPersona);
-                
-                log.info("[PERSONA] Persona creada exitosamente con ID: {} para transactionId: {}", 
-                        personaCreada.getIdpersona(), transactionId);
-                
-                // Enviar evento para crear cliente
-                OnboardingEventDTO clienteEvent = OnboardingEventDTO.createClienteEvent(
-                    transactionId,
-                    identificacion,
-                    generateClientePassword(nombre),
-                    true
-                );
-                
-                enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CLIENTE_TOPIC, transactionId, clienteEvent);
-                log.info("[PERSONA] Evento de cliente enviado para transactionId: {}", transactionId);
+                // Persona no existe, continuar con creación
+                log.info("[PERSONA] Persona no existe, creando nueva para transactionId: {}", transactionId);
             }
             
+            // Crear nueva persona solo si no existe
+            log.info("[PERSONA] Creando nueva persona para transactionId: {}", transactionId);
+            Persona nuevaPersona = crearNuevaPersonaFromEvent(event);
+            Persona personaCreada = personaService.save(nuevaPersona);
+            
+            log.info("[PERSONA] Persona creada exitosamente con ID: {} para transactionId: {}", 
+                    personaCreada.getIdpersona(), transactionId);
+            
+            // Enviar evento para crear cliente
+            enviarEventoCliente(transactionId, identificacion, nombre);
             acknowledgment.acknowledge();
             
         } catch (Exception e) {
             log.error("[PERSONA] Error al procesar persona para transactionId: {}", transactionId, e);
             
-            if (event.hasExceededMaxRetries(MAX_RETRIES)) {
-                log.error("[PERSONA] Máximo de reintentos excedido para transactionId: {}, enviando rollback", transactionId);
-                enviarEventoRollback(transactionId, "PERSONA", e.getMessage());
-                acknowledgment.acknowledge();
-            } else {
-                // Incrementar contador y reenviar
-                event.incrementRetryCount();
-                event.markAsFailed(e.getMessage());
-                
-                try {
-                    Thread.sleep(RETRY_DELAY_MS * event.getRetryCount()); // Backoff exponencial
-                    enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_PERSONA_TOPIC, transactionId, event);
-                    log.info("[PERSONA] Reintento {} programado para transactionId: {}", 
-                             event.getRetryCount(), transactionId);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    log.error("[PERSONA] Interrupción durante reintento para transactionId: {}", transactionId);
-                }
-                
-                acknowledgment.acknowledge();
-            }
+            // NO reintentar - fallar la transacción inmediatamente para evitar bucles
+            enviarEventoRollback(transactionId, "PERSONA", e.getMessage());
+            acknowledgment.acknowledge();
         }
     }
 
@@ -143,80 +108,62 @@ public class OnboardingPersonaClienteListener {
                 return;
             }
             
-            // Verificar si el cliente ya existe (idempotencia)
-            Cliente clienteExistente = null;
+            String identificacionPersona = getPersonaIdentificacion(event);
+            if (identificacionPersona == null || identificacionPersona.trim().isEmpty()) {
+                log.error("[CLIENTE] Evento sin identificación de persona para transactionId: {}", transactionId);
+                enviarEventoRollback(transactionId, "CLIENTE", "Identificación de persona requerida");
+                acknowledgment.acknowledge();
+                return;
+            }
+            
+            // Verificar si el cliente ya existe (idempotencia REAL)
             try {
-                clienteExistente = clienteService.findByIdentificacionPersona(event.getPersonaIdentificacion());
+                Cliente clienteExistente = clienteService.findByIdentificacionPersona(identificacionPersona);
                 log.info("[CLIENTE] Cliente ya existe con ID: {} para transactionId: {}", 
                         clienteExistente.getIdcliente(), transactionId);
                 
-                // Continuar al siguiente paso con el cliente existente
-                OnboardingEventDTO cuentaEvent = OnboardingEventDTO.createCuentaEvent(
-                    transactionId,
-                    clienteExistente.getIdcliente(),
-                    generateNumeroCuenta(),
-                    "AHORROS",
-                    java.math.BigDecimal.valueOf(100.00) // Saldo inicial por defecto
-                );
-                
-                enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CUENTA_TOPIC, transactionId, cuentaEvent);
-                log.info("[CLIENTE] Evento de cuenta enviado para cliente existente, transactionId: {}", transactionId);
+                // Solo continuar al siguiente paso, no crear duplicado
+                enviarEventoCuenta(transactionId, clienteExistente.getIdcliente());
+                acknowledgment.acknowledge();
+                return;
                 
             } catch (Exception e) {
-                // Cliente no existe, crear nuevo
-                log.info("[CLIENTE] Creando nuevo cliente para transactionId: {}", transactionId);
-                
-                // Buscar la persona creada para establecer la relación
-                Persona persona = personaService.findByIdentificacion(event.getPersonaIdentificacion());
-                if (persona == null) {
-                    throw new RuntimeException("Persona no encontrada para crear cliente: " + event.getPersonaIdentificacion());
-                }
-                
-                Cliente nuevoCliente = crearNuevoCliente(event, persona);
-                Cliente clienteCreado = clienteService.save(nuevoCliente);
-                
-                log.info("[CLIENTE] Cliente creado exitosamente con ID: {} para transactionId: {}", 
-                        clienteCreado.getIdcliente(), transactionId);
-                
-                // Enviar evento para crear cuenta
-                OnboardingEventDTO cuentaEvent = OnboardingEventDTO.createCuentaEvent(
-                    transactionId,
-                    clienteCreado.getIdcliente(),
-                    generateNumeroCuenta(),
-                    "AHORROS",
-                    java.math.BigDecimal.valueOf(100.00) // Saldo inicial por defecto
-                );
-                
-                enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CUENTA_TOPIC, transactionId, cuentaEvent);
-                log.info("[CLIENTE] Evento de cuenta enviado para transactionId: {}", transactionId);
+                // Cliente no existe, continuar con creación
+                log.info("[CLIENTE] Cliente no existe, creando nuevo para transactionId: {}", transactionId);
             }
             
+            // Buscar la persona para establecer la relación
+            Persona persona;
+            try {
+                persona = personaService.findByIdentificacion(identificacionPersona);
+                log.info("[CLIENTE] Persona encontrada con ID: {} para transactionId: {}", 
+                        persona.getIdpersona(), transactionId);
+            } catch (Exception e) {
+                log.error("[CLIENTE] Persona no encontrada con identificación: {} para transactionId: {}", 
+                         identificacionPersona, transactionId);
+                enviarEventoRollback(transactionId, "CLIENTE", "Persona no encontrada: " + identificacionPersona);
+                acknowledgment.acknowledge();
+                return;
+            }
+            
+            // Crear nuevo cliente
+            log.info("[CLIENTE] Creando nuevo cliente para transactionId: {}", transactionId);
+            Cliente nuevoCliente = crearNuevoCliente(event, persona);
+            Cliente clienteCreado = clienteService.save(nuevoCliente);
+            
+            log.info("[CLIENTE] Cliente creado exitosamente con ID: {} para transactionId: {}", 
+                    clienteCreado.getIdcliente(), transactionId);
+            
+            // Enviar evento para crear cuenta
+            enviarEventoCuenta(transactionId, clienteCreado.getIdcliente());
             acknowledgment.acknowledge();
             
         } catch (Exception e) {
             log.error("[CLIENTE] Error al procesar cliente para transactionId: {}", transactionId, e);
             
-            if (event.hasExceededMaxRetries(MAX_RETRIES)) {
-                log.error("[CLIENTE] Máximo de reintentos excedido para transactionId: {}, enviando rollback", transactionId);
-                enviarEventoRollback(transactionId, "CLIENTE", e.getMessage());
-                acknowledgment.acknowledge();
-            } else {
-                // Incrementar contador y reenviar
-                event.incrementRetryCount();
-                event.markAsFailed(e.getMessage());
-                
-                try {
-                    Thread.sleep(RETRY_DELAY_MS * event.getRetryCount()); // Backoff exponencial
-                    enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CLIENTE_TOPIC, transactionId, event);
-                    log.info("[CLIENTE] Reintento {} programado para transactionId: {}", 
-                             event.getRetryCount(), transactionId);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    log.error("[CLIENTE] Interrupción durante reintento para transactionId: {}", transactionId);
-                }
-                
-                acknowledgment.acknowledge();
-            }
+            // NO reintentar - fallar la transacción inmediatamente para evitar bucles
+            enviarEventoRollback(transactionId, "CLIENTE", e.getMessage());
+            acknowledgment.acknowledge();
         }
     }
 
@@ -271,6 +218,33 @@ public class OnboardingPersonaClienteListener {
     }
 
     // Métodos auxiliares privados
+    
+    // Métodos auxiliares para simplificar el código
+    
+    private void enviarEventoCliente(String transactionId, String identificacion, String nombre) {
+        OnboardingEventDTO clienteEvent = OnboardingEventDTO.createClienteEvent(
+            transactionId,
+            identificacion,
+            generateClientePassword(nombre),
+            true
+        );
+        
+        enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CLIENTE_TOPIC, transactionId, clienteEvent);
+        log.info("[PERSONA] Evento de cliente enviado para transactionId: {}", transactionId);
+    }
+    
+    private void enviarEventoCuenta(String transactionId, Long clienteId) {
+        OnboardingEventDTO cuentaEvent = OnboardingEventDTO.createCuentaEvent(
+            transactionId,
+            clienteId,
+            generateNumeroCuenta(),
+            "AHORROS",
+            java.math.BigDecimal.valueOf(100.00) // Saldo inicial por defecto
+        );
+        
+        enviarMensajeKafka(KafkaTopicConfig.ONBOARDING_CUENTA_TOPIC, transactionId, cuentaEvent);
+        log.info("[CLIENTE] Evento de cuenta enviado para transactionId: {}", transactionId);
+    }
     
     /**
      * Extrae la identificación de persona del evento, maneja ambos formatos
