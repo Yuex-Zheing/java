@@ -48,8 +48,14 @@ public class KafkaConsumerConfig {
         // Configuración para ignorar propiedades desconocidas
         props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
         
+        // Configuración optimizada del consumidor
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);
+        props.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1); // Procesar de a un mensaje para evitar problemas
+        props.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, 1);
+        props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
         
         return new DefaultKafkaConsumerFactory<>(props);
     }
@@ -58,7 +64,9 @@ public class KafkaConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setConcurrency(1); // Un solo hilo para evitar condiciones de carrera
+        factory.getContainerProperties().setPollTimeout(3000);
         return factory;
     }
 }
