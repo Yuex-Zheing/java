@@ -47,6 +47,16 @@ public class OnboardingServiceImpl implements OnboardingService {
             CuentaDTO cuentaCreada = obtenerOCrearCuenta(request.getCuenta(), clienteCreado.getId());
             log.info("Cuenta procesada con número: {}", cuentaCreada.getNumeroCuenta());
 
+            // Paso 4: Crear movimiento de depósito inicial si el saldo es mayor a 0
+            if (cuentaCreada.getSaldoInicial() != null && cuentaCreada.getSaldoInicial().compareTo(BigDecimal.ZERO) > 0) {
+                crearMovimientoInicialDeposito(cuentaCreada.getNumeroCuenta(), cuentaCreada.getSaldoInicial());
+                log.info("Movimiento de depósito inicial creado para cuenta: {} por monto: {}", 
+                        cuentaCreada.getNumeroCuenta(), cuentaCreada.getSaldoInicial());
+            } else {
+                log.info("No se creó movimiento inicial - saldo inicial es 0 o no definido para cuenta: {}", 
+                        cuentaCreada.getNumeroCuenta());
+            }
+
             // Construir respuesta
             OnboardingResponseDTO response = construirRespuesta(personaCreada, clienteCreado, cuentaCreada);
             
@@ -491,6 +501,46 @@ public class OnboardingServiceImpl implements OnboardingService {
         } catch (Exception e) {
             log.error("Error al crear cuenta: {}", e.getMessage(), e);
             throw new OnboardingException("Error al crear cuenta: " + e.getMessage(), e);
+        }
+    }
+
+    private void crearMovimientoInicialDeposito(Integer numeroCuenta, BigDecimal montoDeposito) {
+        try {
+            // Crear el DTO para el movimiento de depósito inicial
+            MovimientoDTO movimiento = new MovimientoDTO();
+            movimiento.setNumeroCuenta(numeroCuenta);
+            movimiento.setTipomovimiento("DEPOSITO");
+            movimiento.setMovimientodescripcion("Depósito inicial por onboarding");
+            movimiento.setMontomovimiento(montoDeposito);
+            movimiento.setEsReverso(false);
+            
+            log.info("Creando movimiento de depósito inicial para cuenta: {} por monto: {}", 
+                    numeroCuenta, montoDeposito);
+            log.debug("Movimiento request: {}", movimiento);
+            
+            MovimientoDTO response = webClientBuilder.build()
+                .post()
+                .uri(externalServicesConfig.getCuentasMovimientos().getMovimientosUrl())
+                .bodyValue(movimiento)
+                .retrieve()
+                .bodyToMono(MovimientoDTO.class)
+                .timeout(Duration.ofSeconds(30))
+                .block();
+                
+            log.info("Movimiento de depósito inicial creado exitosamente con ID: {}", response.getId());
+            
+        } catch (WebClientResponseException e) {
+            log.error("Error HTTP al crear movimiento inicial: Status {}, Response: {}", 
+                     e.getStatusCode(), e.getResponseBodyAsString());
+            
+            // No lanzar excepción crítica - el onboarding puede continuar sin el movimiento
+            log.warn("El movimiento de depósito inicial no pudo ser creado, pero la cuenta fue configurada correctamente. " +
+                    "El cliente puede realizar el depósito posteriormente.");
+                    
+        } catch (Exception e) {
+            log.error("Error al crear movimiento inicial: {}", e.getMessage(), e);
+            log.warn("El movimiento de depósito inicial no pudo ser creado, pero la cuenta fue configurada correctamente. " +
+                    "El cliente puede realizar el depósito posteriormente.");
         }
     }
 
