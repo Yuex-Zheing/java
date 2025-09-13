@@ -34,18 +34,25 @@ public class OnboardingCuentaMovimientoListener {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     /**
-     * Procesa eventos de creación de cuenta usando CuentaEventDTO
+     * Procesa eventos de creación de cuenta usando deserialización flexible
      */
     @KafkaListener(topics = KafkaTopicConfig.ONBOARDING_CUENTA, groupId = "cuentas-movimientos-cuenta-group")
-    public void procesarCreacionCuenta(@Payload CuentaEventDTO event,
+    public void procesarCreacionCuenta(@Payload Object rawEvent,
                                      @Header(KafkaHeaders.RECEIVED_KEY) String transactionId,
                                      Acknowledgment acknowledgment) {
         
         log.info("[CUENTA] Procesando creación de cuenta para transactionId: {}", transactionId);
         
         try {
-            // Convertir CuentaEventDTO a OnboardingEventDTO para compatibilidad con métodos existentes
-            OnboardingEventDTO onboardingEvent = convertirCuentaEventDTO(event);
+            // Convertir el evento recibido al formato interno
+            OnboardingEventDTO onboardingEvent = convertirEventoFlexible(rawEvent, transactionId);
+            
+            if (onboardingEvent == null) {
+                log.error("[CUENTA] No se pudo convertir el evento para transactionId: {}", transactionId);
+                enviarEventoRollback(transactionId, "CUENTA", "Formato de evento no válido");
+                acknowledgment.acknowledge();
+                return;
+            }
             
             // Asegurar que tenga tipo de evento correcto
             if (onboardingEvent.getEventType() == null) {
@@ -56,47 +63,34 @@ public class OnboardingCuentaMovimientoListener {
             procesarCreacionCuentaInterno(onboardingEvent, transactionId, acknowledgment);
             
         } catch (Exception e) {
-            log.error("[CUENTA] Error al procesar KafkaEventDTO para transactionId: {}", transactionId, e);
+            log.error("[CUENTA] Error al procesar evento para transactionId: {}", transactionId, e);
             enviarEventoRollback(transactionId, "CUENTA", e.getMessage());
             acknowledgment.acknowledge();
         }
     }
 
-    /**
-     * Procesa eventos de creación de cuenta usando CuentaEventDTO (compatibilidad)
-     */
-    @KafkaListener(topics = KafkaTopicConfig.ONBOARDING_CUENTA, groupId = "cuentas-movimientos-cuenta-legacy-group")
-    public void procesarCreacionCuentaLegacy(@Payload CuentaEventDTO event,
-                                           @Header(KafkaHeaders.RECEIVED_KEY) String transactionId,
-                                           Acknowledgment acknowledgment) {
-        
-        log.info("[CUENTA-LEGACY] Procesando creación de cuenta con CuentaEventDTO para transactionId: {}", transactionId);
-        
-        try {
-            // Convertir CuentaEventDTO a OnboardingEventDTO
-            OnboardingEventDTO onboardingEvent = convertirCuentaEventDTO(event);
-            procesarCreacionCuentaInterno(onboardingEvent, transactionId, acknowledgment);
-            
-        } catch (Exception e) {
-            log.error("[CUENTA-LEGACY] Error al procesar creación de cuenta para transactionId: {}", transactionId, e);
-            enviarEventoRollback(transactionId, "CUENTA", e.getMessage());
-            acknowledgment.acknowledge();
-        }
-    }
+
 
     /**
-     * Procesa eventos de creación de movimiento usando CuentaEventDTO
+     * Procesa eventos de creación de movimiento usando deserialización flexible
      */
     @KafkaListener(topics = KafkaTopicConfig.ONBOARDING_MOVIMIENTO, groupId = "cuentas-movimientos-movimiento-group")
-    public void procesarCreacionMovimiento(@Payload CuentaEventDTO event,
+    public void procesarCreacionMovimiento(@Payload Object rawEvent,
                                          @Header(KafkaHeaders.RECEIVED_KEY) String transactionId,
                                          Acknowledgment acknowledgment) {
         
         log.info("[MOVIMIENTO] Procesando creación de movimiento para transactionId: {}", transactionId);
         
         try {
-            // Convertir CuentaEventDTO a OnboardingEventDTO para compatibilidad con métodos existentes
-            OnboardingEventDTO onboardingEvent = convertirCuentaEventDTO(event);
+            // Convertir el evento recibido al formato interno
+            OnboardingEventDTO onboardingEvent = convertirEventoFlexible(rawEvent, transactionId);
+            
+            if (onboardingEvent == null) {
+                log.error("[MOVIMIENTO] No se pudo convertir el evento para transactionId: {}", transactionId);
+                enviarEventoRollback(transactionId, "MOVIMIENTO", "Formato de evento no válido");
+                acknowledgment.acknowledge();
+                return;
+            }
             
             // Asegurar que tenga tipo de evento correcto
             if (onboardingEvent.getEventType() == null) {
@@ -107,27 +101,30 @@ public class OnboardingCuentaMovimientoListener {
             procesarCreacionMovimientoInterno(onboardingEvent, transactionId, acknowledgment);
             
         } catch (Exception e) {
-            log.error("[MOVIMIENTO] Error al procesar KafkaEventDTO para transactionId: {}", transactionId, e);
+            log.error("[MOVIMIENTO] Error al procesar evento para transactionId: {}", transactionId, e);
             enviarEventoRollback(transactionId, "MOVIMIENTO", e.getMessage());
             acknowledgment.acknowledge();
         }
     }
 
     /**
-     * Procesa eventos de rollback usando CuentaEventDTO
+     * Procesa eventos de rollback usando deserialización flexible
      */
     @KafkaListener(topics = KafkaTopicConfig.ONBOARDING_ROLLBACK, groupId = "cuentas-movimientos-rollback-group")
-    public void procesarRollback(@Payload CuentaEventDTO event,
+    public void procesarRollback(@Payload Object rawEvent,
                                @Header(KafkaHeaders.RECEIVED_KEY) String transactionId,
                                Acknowledgment acknowledgment) {
         
         log.info("[ROLLBACK] Procesando rollback para transactionId: {}", transactionId);
         
         try {
+            // Convertir el evento recibido al formato interno
+            OnboardingEventDTO event = convertirEventoFlexible(rawEvent, transactionId);
+            
             // Solo procesar rollbacks relacionados con cuentas y movimientos
-            if (event.getNumeroCuenta() != null) {
+            if (event != null && event.getNumeroCuenta() != null && !event.getNumeroCuenta().trim().isEmpty()) {
                 try {
-                    cerrarCuentaPorError(event.getNumeroCuenta().toString(), transactionId);
+                    cerrarCuentaPorError(event.getNumeroCuenta(), transactionId);
                     log.info("[ROLLBACK] Cuenta {} marcada como cerrada para transactionId: {}", 
                              event.getNumeroCuenta(), transactionId);
                 } catch (Exception e) {
@@ -239,12 +236,14 @@ public class OnboardingCuentaMovimientoListener {
             }
             
             // Crear cuenta (con verificación interna atómica)
-            log.info("[CUENTA] Procesando creación de cuenta para transactionId: {}", transactionId);
+            log.info("[CUENTA] Iniciando creación de cuenta - Cliente: {}, Número: {}, Tipo: {}, Saldo: {} (TransactionId: {})", 
+                     event.getClienteId(), event.getNumeroCuenta(), event.getTipoCuenta(), event.getSaldoInicial(), transactionId);
             Cuenta cuentaCreada = crearCuentaTransaccional(event);
             
             if (cuentaCreada != null) {
-                log.info("[CUENTA] Cuenta procesada exitosamente con número: {} para transactionId: {}", 
-                         cuentaCreada.getNumerocuenta(), transactionId);
+                log.info("[CUENTA] ✓ Cuenta procesada exitosamente - Número: {}, Estado: {}, Saldo disponible: {} (TransactionId: {})", 
+                         cuentaCreada.getNumerocuenta(), cuentaCreada.getEstado() ? "ACTIVA" : "INACTIVA", 
+                         cuentaCreada.getSaldodisponible(), transactionId);
                 
                 // Crear movimiento inicial solo si la cuenta tiene saldo inicial
                 if (cuentaCreada.getSaldoinicial() != null && cuentaCreada.getSaldoinicial().compareTo(BigDecimal.ZERO) > 0) {
@@ -277,6 +276,123 @@ public class OnboardingCuentaMovimientoListener {
 
 
     // ========== MÉTODOS DE CONVERSIÓN ==========
+    
+    /**
+     * Convierte eventos de diferentes tipos a OnboardingEventDTO
+     */
+    private OnboardingEventDTO convertirEventoFlexible(Object rawEvent, String transactionId) {
+        try {
+            if (rawEvent instanceof OnboardingEventDTO) {
+                // Ya es el tipo correcto
+                return (OnboardingEventDTO) rawEvent;
+            }
+            
+            if (rawEvent instanceof CuentaEventDTO) {
+                // Convertir desde CuentaEventDTO
+                return convertirCuentaEventDTO((CuentaEventDTO) rawEvent);
+            }
+            
+            if (rawEvent instanceof java.util.LinkedHashMap) {
+                // Deserializar desde Map (común cuando se recibe JSON genérico)
+                return convertirDesdeMap((java.util.LinkedHashMap<?, ?>) rawEvent, transactionId);
+            }
+            
+            log.warn("[CONVERSION] Tipo de evento no reconocido: {} para transactionId: {}", 
+                    rawEvent.getClass().getSimpleName(), transactionId);
+            return null;
+            
+        } catch (Exception e) {
+            log.error("[CONVERSION] Error al convertir evento para transactionId: {}", transactionId, e);
+            return null;
+        }
+    }
+    
+    /**
+     * Convierte un Map (JSON deserializado) a OnboardingEventDTO
+     */
+    private OnboardingEventDTO convertirDesdeMap(java.util.LinkedHashMap<?, ?> map, String transactionId) {
+        try {
+            OnboardingEventDTO event = new OnboardingEventDTO();
+            
+            // Campos básicos
+            event.setTransactionId(getMapValue(map, "transactionId", String.class, transactionId));
+            event.setEventType(getMapValue(map, "eventType", String.class, "CUENTA"));
+            event.setStatus(getMapValue(map, "status", String.class, "PENDING"));
+            event.setRetryCount(getMapValue(map, "retryCount", Integer.class, 0));
+            
+            // Timestamp
+            Object timestampObj = map.get("timestamp");
+            if (timestampObj != null) {
+                if (timestampObj instanceof String) {
+                    event.setTimestamp(LocalDateTime.parse((String) timestampObj));
+                } else {
+                    event.setTimestamp(LocalDateTime.now());
+                }
+            } else {
+                event.setTimestamp(LocalDateTime.now());
+            }
+            
+            // Datos de cliente
+            event.setClienteId(getMapValue(map, "clienteId", Long.class, null));
+            
+            // Datos de cuenta
+            Object numeroCuentaObj = map.get("numeroCuenta");
+            if (numeroCuentaObj != null) {
+                if (numeroCuentaObj instanceof Integer) {
+                    event.setNumeroCuenta(numeroCuentaObj.toString());
+                } else if (numeroCuentaObj instanceof String) {
+                    event.setNumeroCuenta((String) numeroCuentaObj);
+                }
+            }
+            
+            event.setTipoCuenta(getMapValue(map, "tipoCuenta", String.class, null));
+            event.setSaldoInicial(getMapValue(map, "saldoInicial", java.math.BigDecimal.class, null));
+            event.setCuentaEstado(getMapValue(map, "cuentaEstado", Boolean.class, true));
+            
+            // Datos de movimiento
+            event.setTipoMovimiento(getMapValue(map, "tipoMovimiento", String.class, null));
+            event.setMontoMovimiento(getMapValue(map, "montoMovimiento", java.math.BigDecimal.class, null));
+            event.setMovimientoDescripcion(getMapValue(map, "movimientoDescripcion", String.class, null));
+            
+            return event;
+            
+        } catch (Exception e) {
+            log.error("[CONVERSION] Error al convertir desde Map para transactionId: {}", transactionId, e);
+            return null;
+        }
+    }
+    
+    /**
+     * Extrae un valor del Map con el tipo esperado
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T getMapValue(java.util.LinkedHashMap<?, ?> map, String key, Class<T> type, T defaultValue) {
+        try {
+            Object value = map.get(key);
+            if (value == null) {
+                return defaultValue;
+            }
+            
+            if (type.isInstance(value)) {
+                return (T) value;
+            }
+            
+            // Conversiones especiales
+            if (type == Long.class && value instanceof Integer) {
+                return (T) Long.valueOf(((Integer) value).longValue());
+            }
+            if (type == Integer.class && value instanceof Long) {
+                return (T) Integer.valueOf(((Long) value).intValue());
+            }
+            if (type == java.math.BigDecimal.class && value instanceof Number) {
+                return (T) new java.math.BigDecimal(value.toString());
+            }
+            
+            return defaultValue;
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
     
     private OnboardingEventDTO convertirCuentaEventDTO(CuentaEventDTO cuentaEvent) {
         OnboardingEventDTO event = new OnboardingEventDTO();
@@ -316,50 +432,81 @@ public class OnboardingCuentaMovimientoListener {
     @Transactional
     public Cuenta crearCuentaTransaccional(OnboardingEventDTO event) {
         try {
+            // Validaciones de entrada mejoradas
+            if (event.getNumeroCuenta() == null || event.getNumeroCuenta().trim().isEmpty()) {
+                throw new IllegalArgumentException("Número de cuenta es requerido");
+            }
+            if (event.getClienteId() == null) {
+                throw new IllegalArgumentException("ID de cliente es requerido");
+            }
+            if (event.getTipoCuenta() == null || event.getTipoCuenta().trim().isEmpty()) {
+                throw new IllegalArgumentException("Tipo de cuenta es requerido");
+            }
+            
             Integer numeroCuentaInt = Integer.valueOf(event.getNumeroCuenta());
             
             // Verificación atómica dentro de la transacción
-            Cuenta cuentaExistente = cuentaService.findByNumeroCuenta(numeroCuentaInt);
-            if (cuentaExistente != null) {
-                log.info("[CUENTA] Cuenta ya existe con número: {} para cliente: {}", 
-                        numeroCuentaInt, event.getClienteId());
-                return cuentaExistente;
+            try {
+                Cuenta cuentaExistente = cuentaService.findByNumeroCuenta(numeroCuentaInt);
+                if (cuentaExistente != null) {
+                    log.info("[CUENTA] Cuenta ya existe con número: {} para cliente: {} - usando existente", 
+                            numeroCuentaInt, event.getClienteId());
+                    return cuentaExistente;
+                }
+            } catch (jakarta.persistence.EntityNotFoundException e) {
+                // Cuenta no existe, continuamos con la creación
+                log.debug("[CUENTA] Cuenta no existe, procediendo a crear para número: {}", numeroCuentaInt);
             }
             
-            // Crear nueva cuenta
+            // Crear nueva cuenta con validaciones mejoradas
             Cuenta nuevaCuenta = new Cuenta();
             nuevaCuenta.setNumerocuenta(numeroCuentaInt);
             nuevaCuenta.setIdcliente(event.getClienteId());
-            nuevaCuenta.setTipocuenta(Cuenta.TipoCuenta.valueOf(event.getTipoCuenta()));
-            nuevaCuenta.setSaldoinicial(event.getSaldoInicial() != null ? event.getSaldoInicial() : BigDecimal.ZERO);
-            nuevaCuenta.setSaldodisponible(event.getSaldoInicial() != null ? event.getSaldoInicial() : BigDecimal.ZERO);
+            
+            // Validar tipo de cuenta
+            try {
+                nuevaCuenta.setTipocuenta(Cuenta.TipoCuenta.valueOf(event.getTipoCuenta().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                log.error("[CUENTA] Tipo de cuenta inválido: {} para transactionId", event.getTipoCuenta());
+                throw new IllegalArgumentException("Tipo de cuenta inválido: " + event.getTipoCuenta());
+            }
+            
+            BigDecimal saldoInicial = event.getSaldoInicial() != null ? event.getSaldoInicial() : BigDecimal.ZERO;
+            if (saldoInicial.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("El saldo inicial no puede ser negativo");
+            }
+            
+            nuevaCuenta.setSaldoinicial(saldoInicial);
+            nuevaCuenta.setSaldodisponible(saldoInicial);
             nuevaCuenta.setEstado(true);
             nuevaCuenta.setFechacreacion(LocalDateTime.now());
             
             Cuenta cuentaCreada = cuentaService.save(nuevaCuenta);
-            log.info("[CUENTA] Cuenta creada exitosamente con ID: {} para cliente: {}", 
-                    cuentaCreada.getNumerocuenta(), event.getClienteId());
+            log.info("[CUENTA] Cuenta creada exitosamente - Número: {}, Cliente: {}, Saldo: {}", 
+                    cuentaCreada.getNumerocuenta(), event.getClienteId(), saldoInicial);
             
             return cuentaCreada;
             
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // Si hay violación de integridad, probablemente la cuenta ya existe
-            log.warn("[CUENTA] Cuenta duplicada detectada para número: {}, verificando existencia...", event.getNumeroCuenta());
+            log.warn("[CUENTA] Posible cuenta duplicada para número: {}, verificando...", event.getNumeroCuenta());
             try {
                 Integer numeroCuentaInt = Integer.valueOf(event.getNumeroCuenta());
                 Cuenta cuentaExistente = cuentaService.findByNumeroCuenta(numeroCuentaInt);
                 if (cuentaExistente != null) {
-                    log.info("[CUENTA] Cuenta confirmada como existente: {} para cliente: {}", 
-                            numeroCuentaInt, event.getClienteId());
+                    log.info("[CUENTA] Confirmada cuenta existente tras intento de duplicación: {}", numeroCuentaInt);
                     return cuentaExistente;
                 }
             } catch (Exception ex) {
-                log.error("[CUENTA] Error al verificar cuenta existente tras violación de integridad: {}", ex.getMessage());
+                log.error("[CUENTA] Error al verificar cuenta existente tras violación de integridad", ex);
             }
-            throw e;
+            throw new RuntimeException("Error de integridad de datos al crear cuenta: " + e.getMessage(), e);
+        } catch (NumberFormatException e) {
+            log.error("[CUENTA] Número de cuenta inválido: {} para cliente: {}", event.getNumeroCuenta(), event.getClienteId());
+            throw new IllegalArgumentException("Número de cuenta inválido: " + event.getNumeroCuenta(), e);
         } catch (Exception e) {
-            log.error("[CUENTA] Error al crear cuenta para cliente {}: {}", event.getClienteId(), e.getMessage());
-            throw e;
+            log.error("[CUENTA] Error inesperado al crear cuenta para cliente {}: {}", event.getClienteId(), e.getMessage(), e);
+            throw new RuntimeException("Error al crear cuenta: " + e.getMessage(), e);
         }
     }
     
@@ -487,22 +634,24 @@ public class OnboardingCuentaMovimientoListener {
         KafkaEventDTO completedEvent = KafkaEventDTO.createCompletedEvent(transactionId);
         
         enviarMensajeKafkaUnificado(KafkaTopicConfig.ONBOARDING_COMPLETED, transactionId, completedEvent);
-        log.info("[COMPLETED] Onboarding completado exitosamente para transactionId: {}", transactionId);
+        log.info("[COMPLETED] ✓ Proceso de cuenta finalizado exitosamente (TransactionId: {})", transactionId);
     }
     
     private void enviarEventoRollback(String transactionId, String failedStep, String errorMessage) {
         KafkaEventDTO rollbackEvent = KafkaEventDTO.createRollbackEvent(transactionId, failedStep, errorMessage);
         
         enviarMensajeKafkaUnificado(KafkaTopicConfig.ONBOARDING_ROLLBACK, transactionId, rollbackEvent);
-        log.info("[ROLLBACK] Mensaje de rollback enviado para transactionId: {}", transactionId);
+        log.warn("[ROLLBACK] ✗ Rollback iniciado - Paso fallido: {}, Error: {} (TransactionId: {})", 
+                failedStep, errorMessage, transactionId);
     }
     
     private void enviarMensajeKafka(String topic, String key, OnboardingEventDTO event) {
         try {
             kafkaTemplate.send(topic, key, event);
-            log.debug("[KAFKA] Mensaje enviado al topic: {} con key: {}", topic, key);
+            log.info("[KAFKA] ✓ Mensaje enviado - Topic: {}, Tipo: {}, TransactionId: {}", 
+                    topic, event.getEventType(), key);
         } catch (Exception e) {
-            log.error("[KAFKA] Error al enviar mensaje al topic: {} con key: {}", topic, key, e);
+            log.error("[KAFKA] ✗ Error al enviar mensaje - Topic: {}, TransactionId: {}", topic, key, e);
             throw new RuntimeException("Error al enviar mensaje Kafka", e);
         }
     }
@@ -510,9 +659,10 @@ public class OnboardingCuentaMovimientoListener {
     private void enviarMensajeKafkaUnificado(String topic, String key, KafkaEventDTO event) {
         try {
             kafkaTemplate.send(topic, key, event);
-            log.debug("[KAFKA] Mensaje KafkaEventDTO enviado al topic: {} con key: {}", topic, key);
+            log.info("[KAFKA] ✓ Mensaje enviado - Topic: {}, Tipo: {}, TransactionId: {}", 
+                    topic, event.getEventType(), key);
         } catch (Exception e) {
-            log.error("[KAFKA] Error al enviar mensaje KafkaEventDTO al topic: {} con key: {}", topic, key, e);
+            log.error("[KAFKA] ✗ Error al enviar mensaje - Topic: {}, TransactionId: {}", topic, key, e);
             throw new RuntimeException("Error al enviar mensaje Kafka", e);
         }
     }
@@ -520,9 +670,9 @@ public class OnboardingCuentaMovimientoListener {
     private void enviarMensajeCuentaEventDTO(String topic, String key, CuentaEventDTO event) {
         try {
             kafkaTemplate.send(topic, key, event);
-            log.debug("[KAFKA] Mensaje CuentaEventDTO enviado al topic: {} con key: {}", topic, key);
+            log.info("[KAFKA] ✓ Mensaje CuentaEventDTO enviado - Topic: {}, TransactionId: {}", topic, key);
         } catch (Exception e) {
-            log.error("[KAFKA] Error al enviar mensaje CuentaEventDTO al topic: {} con key: {}", topic, key, e);
+            log.error("[KAFKA] ✗ Error al enviar mensaje CuentaEventDTO - Topic: {}, TransactionId: {}", topic, key, e);
             throw new RuntimeException("Error al enviar mensaje Kafka", e);
         }
     }

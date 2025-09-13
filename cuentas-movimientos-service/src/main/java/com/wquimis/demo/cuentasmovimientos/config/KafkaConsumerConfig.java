@@ -41,7 +41,8 @@ public class KafkaConsumerConfig {
         // Configurar JsonDeserializer
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.wquimis.demo.cuentasmovimientos.dto.kafka.CuentaEventDTO");
+        // Permitir deserialización flexible para múltiples tipos de DTOs
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "java.lang.Object");
         
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
