@@ -505,42 +505,49 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     private void crearMovimientoInicialDeposito(Integer numeroCuenta, BigDecimal montoDeposito) {
+        // Validaciones previas
+        if (montoDeposito == null) {
+            log.debug("[ONBOARDING][MOVIMIENTO_INICIAL] Monto nulo, no se crea movimiento inicial para cuenta {}", numeroCuenta);
+            return;
+        }
+        if (montoDeposito.compareTo(BigDecimal.ZERO) <= 0) {
+            log.info("[ONBOARDING][MOVIMIENTO_INICIAL] Saldo inicial <= 0 ({}), no se crea movimiento para cuenta {}", montoDeposito, numeroCuenta);
+            return;
+        }
+
         try {
-            // Crear el DTO para el movimiento de depósito inicial
             MovimientoDTO movimiento = new MovimientoDTO();
-            movimiento.setNumeroCuenta(numeroCuenta);
             movimiento.setTipomovimiento("DEPOSITO");
             movimiento.setMovimientodescripcion("Depósito inicial por onboarding");
             movimiento.setMontomovimiento(montoDeposito);
             movimiento.setEsReverso(false);
-            
-            log.info("Creando movimiento de depósito inicial para cuenta: {} por monto: {}", 
-                    numeroCuenta, montoDeposito);
-            log.debug("Movimiento request: {}", movimiento);
-            
+
+            String baseMovimientosUrl = externalServicesConfig.getCuentasMovimientos().getMovimientosUrl(); // termina en /api/movimientos
+            String endpoint = baseMovimientosUrl + "/cuenta/" + numeroCuenta; // /api/movimientos/cuenta/{numeroCuenta}
+
+            log.info("[ONBOARDING][MOVIMIENTO_INICIAL] Creando depósito inicial cuenta {} monto {} endpoint {}", numeroCuenta, montoDeposito, endpoint);
+            log.debug("[ONBOARDING][MOVIMIENTO_INICIAL] Payload: {}", movimiento);
+
             MovimientoDTO response = webClientBuilder.build()
                 .post()
-                .uri(externalServicesConfig.getCuentasMovimientos().getMovimientosUrl())
+                .uri(endpoint)
                 .bodyValue(movimiento)
                 .retrieve()
                 .bodyToMono(MovimientoDTO.class)
                 .timeout(Duration.ofSeconds(30))
                 .block();
-                
-            log.info("Movimiento de depósito inicial creado exitosamente con ID: {}", response.getId());
-            
+
+            if (response != null && response.getId() != null) {
+                log.info("[ONBOARDING][MOVIMIENTO_INICIAL] Movimiento inicial creado ID {} para cuenta {}", response.getId(), numeroCuenta);
+            } else {
+                log.warn("[ONBOARDING][MOVIMIENTO_INICIAL] Respuesta sin ID al crear movimiento inicial para cuenta {}", numeroCuenta);
+            }
         } catch (WebClientResponseException e) {
-            log.error("Error HTTP al crear movimiento inicial: Status {}, Response: {}", 
-                     e.getStatusCode(), e.getResponseBodyAsString());
-            
-            // No lanzar excepción crítica - el onboarding puede continuar sin el movimiento
-            log.warn("El movimiento de depósito inicial no pudo ser creado, pero la cuenta fue configurada correctamente. " +
-                    "El cliente puede realizar el depósito posteriormente.");
-                    
+            log.error("[ONBOARDING][MOVIMIENTO_INICIAL] Error HTTP Status {} Body {}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.warn("[ONBOARDING][MOVIMIENTO_INICIAL] Falló creación de movimiento inicial (cuenta {}), proceso onboarding continúa", numeroCuenta);
         } catch (Exception e) {
-            log.error("Error al crear movimiento inicial: {}", e.getMessage(), e);
-            log.warn("El movimiento de depósito inicial no pudo ser creado, pero la cuenta fue configurada correctamente. " +
-                    "El cliente puede realizar el depósito posteriormente.");
+            log.error("[ONBOARDING][MOVIMIENTO_INICIAL] Error inesperado {}", e.getMessage(), e);
+            log.warn("[ONBOARDING][MOVIMIENTO_INICIAL] Falló creación de movimiento inicial (cuenta {}), proceso onboarding continúa", numeroCuenta);
         }
     }
 

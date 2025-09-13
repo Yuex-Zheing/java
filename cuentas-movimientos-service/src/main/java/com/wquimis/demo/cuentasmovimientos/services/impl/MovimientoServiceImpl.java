@@ -9,6 +9,7 @@ import com.wquimis.demo.cuentasmovimientos.services.CuentaService;
 import com.wquimis.demo.cuentasmovimientos.services.MovimientoService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ import java.util.List;
 
 @Service
 @Transactional
+@Slf4j
 public class MovimientoServiceImpl implements MovimientoService {
 
     private final MovimientoRepository movimientoRepository;
@@ -156,17 +158,39 @@ public class MovimientoServiceImpl implements MovimientoService {
             }
             // Debitar de la cuenta
             cuenta.debitar(monto);
-        } else {
-            // Acreditar a la cuenta
-            cuenta.acreditar(monto);
+        } else { // DEPÓSITO
+            boolean esDepositoInicial = false;
+            // Detectar posible depósito inicial (patrón de onboarding)
+            if (movimiento.getMovimientodescripcion() != null &&
+                movimiento.getMovimientodescripcion().toLowerCase().contains("depósito inicial") ) {
+                // Si el saldo disponible ya es igual al saldo inicial + monto (o ya refleja el monto)
+                // entonces probablemente el saldo ya fue seteado al crear la cuenta
+                BigDecimal saldoAntes = cuenta.getSaldodisponible();
+                BigDecimal saldoInicial = cuenta.getSaldoinicial();
+                if (saldoAntes != null && saldoInicial != null) {
+                    // Caso A: prePersist ya igualó saldodisponible = saldoinicial y el movimiento repite ese monto
+                    if (saldoAntes.compareTo(saldoInicial) == 0 && monto.compareTo(saldoInicial) == 0) {
+                        esDepositoInicial = true;
+                        log.info("[MOVIMIENTOS][SKIP_DEPOSITO_INICIAL] Evitando doble acreditación. Cuenta {} saldoActual {} monto {}", cuenta.getNumerocuenta(), saldoAntes, monto);
+                    }
+                    // Caso B: saldo disponible ya incluye el monto (posible reintento) -> saldoAntes - monto == saldoInicial
+                    else if (saldoAntes.subtract(monto).compareTo(saldoInicial) == 0) {
+                        esDepositoInicial = true;
+                        log.warn("[MOVIMIENTOS][REINTENTO_DEPOSITO_INICIAL] Detectado reintento de depósito inicial. Cuenta {} saldoActual {} monto {}", cuenta.getNumerocuenta(), saldoAntes, monto);
+                    }
+                }
+            }
+            if (!esDepositoInicial) {
+                cuenta.acreditar(monto);
+            }
         }
 
         // Establecer fechas y hora actuales
         movimiento.setFechamovimiento(LocalDate.now());
         movimiento.setHoramovimiento(LocalTime.now());
         
-        // Establecer el saldo disponible después del movimiento
-        movimiento.setSaldodisponible(cuenta.getSaldodisponible());
+    // Establecer el saldo disponible después del movimiento (o sin cambios si se saltó)
+    movimiento.setSaldodisponible(cuenta.getSaldodisponible());
 
         // Guardar la cuenta actualizada
         cuentaService.saveOrUpdate(cuenta);
