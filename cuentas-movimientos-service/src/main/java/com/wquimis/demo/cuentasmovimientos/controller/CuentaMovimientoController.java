@@ -67,7 +67,7 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(cuentas);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999", 
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO", 
                     e.getMessage(),
                     "Ha ocurrido un error al obtener las cuentas"));
         }
@@ -83,7 +83,7 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(cuentas);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999", 
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO", 
                     e.getMessage(),
                     "Ha ocurrido un error al obtener las cuentas activas"));
         }
@@ -91,18 +91,18 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Obtener cuenta por número")
     @GetMapping("/cuentas/{numeroCuenta}")
-    public ResponseEntity<?> getCuentaByNumero(@PathVariable Integer numeroCuenta) {
+    public ResponseEntity<?> getCuentaByNumero(@PathVariable("numeroCuenta") Integer numeroCuenta) {
         try {
             Cuenta cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
             return ResponseEntity.ok(dtoConverter.toDto(cuenta));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_201_CUENTA",
                     e.getMessage(),
                     "Cuenta no encontrada"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999", 
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO", 
                     e.getMessage(),
                     "Ha ocurrido un error al obtener la cuenta"));
         }
@@ -110,7 +110,7 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Obtener cuentas por ID de cliente")
     @GetMapping("/cuentas/cliente/{idCliente}")
-    public ResponseEntity<?> getCuentasByCliente(@PathVariable Long idCliente) {
+    public ResponseEntity<?> getCuentasByCliente(@PathVariable("idCliente") Long idCliente) {
         try {
             List<CuentaDTO> cuentas = cuentaService.findByIdCliente(idCliente).stream()
                     .map(dtoConverter::toDto)
@@ -118,7 +118,7 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(cuentas);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999", 
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO", 
                     e.getMessage(),
                     "Ha ocurrido un error al obtener las cuentas del cliente"));
         }
@@ -126,7 +126,7 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Obtener cuentas por tipo")
     @GetMapping("/cuentas/tipo/{tipoCuenta}")
-    public ResponseEntity<?> getCuentasByTipo(@PathVariable String tipoCuenta) {
+    public ResponseEntity<?> getCuentasByTipo(@PathVariable("tipoCuenta") String tipoCuenta) {
         try {
             Cuenta.TipoCuenta tipo = Cuenta.TipoCuenta.valueOf(tipoCuenta.toUpperCase());
             List<CuentaDTO> cuentas = cuentaService.findByTipoCuenta(tipo).stream()
@@ -135,52 +135,34 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(cuentas);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorDTO.of("ERR_002",
+                .body(ErrorDTO.of("VAL_100_TIPO_CUENTA_INVALIDO",
                     "Tipo de cuenta inválido: " + tipoCuenta,
                     "Los tipos válidos son: AHORROS, CORRIENTE"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al obtener las cuentas por tipo"));
         }
     }
 
     @Operation(summary = "Crear nueva cuenta",
-               description = "Crea una nueva cuenta y automáticamente genera un movimiento de depósito inicial " +
-                           "por el saldo inicial especificado para mantener la trazabilidad bancaria")
+               description = "Crea una nueva cuenta bancaria con el saldo inicial especificado")
     @PostMapping("/cuentas")
     public ResponseEntity<?> createCuenta(@Valid @RequestBody CuentaDTO cuentaDto) {
         try {
-            var cuenta = dtoConverter.toEntity(cuentaDto);
+            Cuenta cuenta = dtoConverter.toEntity(cuentaDto);
             Cuenta cuentaCreada = cuentaService.save(cuenta);
-            
-            // Crear movimiento de depósito inicial si el saldo inicial es mayor a 0
-            if (cuentaCreada.getSaldoinicial() != null && 
-                cuentaCreada.getSaldoinicial().compareTo(BigDecimal.ZERO) > 0) {
-                
-                Movimiento depositoInicial = new Movimiento();
-                depositoInicial.setCuenta(cuentaCreada);
-                depositoInicial.setTipomovimiento(Movimiento.TipoMovimiento.DEPOSITO);
-                depositoInicial.setMontomovimiento(cuentaCreada.getSaldoinicial());
-                depositoInicial.setMovimientodescripcion("Depósito inicial - Apertura de cuenta");
-                depositoInicial.setFechamovimiento(LocalDate.now());
-                depositoInicial.setHoramovimiento(LocalTime.now());
-                depositoInicial.setSaldodisponible(cuentaCreada.getSaldoinicial());
-                depositoInicial.setEstado(true);
-                
-                movimientoService.save(depositoInicial);
-            }
             
             return ResponseEntity.ok(dtoConverter.toDto(cuentaCreada));
         } catch (CuentaExistenteException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorDTO.of("ERR_008",
+                .body(ErrorDTO.of("CUE_300_DUP_TIPO_NUMERO", // número de cuenta duplicado
                     e.getMessage(),
                     "Ya existe una cuenta con el número proporcionado"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al crear la cuenta"));
         }
@@ -189,7 +171,7 @@ public class CuentaMovimientoController {
     @Operation(summary = "Actualizar cuenta existente")
     @PutMapping("/cuentas/{numeroCuenta}")
     public ResponseEntity<?> updateCuenta(
-            @PathVariable Integer numeroCuenta,
+        @PathVariable("numeroCuenta") Integer numeroCuenta,
             @Valid @RequestBody UpdateCuentaDTO updateCuentaDto) {
         try {
             Cuenta cuentaExistente = cuentaService.findByNumeroCuenta(numeroCuenta);
@@ -197,12 +179,12 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(dtoConverter.toDto(cuentaService.update(numeroCuenta, cuentaExistente)));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_201_CUENTA",
                     "Cuenta no encontrada con número: " + numeroCuenta,
                     "La cuenta que intenta actualizar no existe"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al actualizar la cuenta"));
         }
@@ -210,7 +192,7 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Eliminar cuenta (desactivar)")
     @DeleteMapping("/cuentas/{numeroCuenta}")
-    public ResponseEntity<?> deleteCuenta(@PathVariable Integer numeroCuenta) {
+    public ResponseEntity<?> deleteCuenta(@PathVariable("numeroCuenta") Integer numeroCuenta) {
         try {
             cuentaService.delete(numeroCuenta);
             return ResponseEntity.ok(ErrorDTO.of("SUCCESS",
@@ -218,12 +200,12 @@ public class CuentaMovimientoController {
                 "La cuenta ha sido desactivada exitosamente"));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_201_CUENTA",
                     "Cuenta no encontrada con número: " + numeroCuenta,
                     "La cuenta que intenta eliminar no existe"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al eliminar la cuenta"));
         }
@@ -240,43 +222,43 @@ public class CuentaMovimientoController {
     })
     @PostMapping("/movimientos/cuenta/{numeroCuenta}")
     public ResponseEntity<?> realizarMovimiento(
-            @PathVariable @NotNull(message = "El número de cuenta es requerido") Integer numeroCuenta,
+        @PathVariable("numeroCuenta") @NotNull(message = "El número de cuenta es requerido") Integer numeroCuenta,
             @Valid @RequestBody MovimientoDTO movimientoDto) {
         try {
             // Verificar que la cuenta existe
-            var cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
+            Cuenta cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
             
             // Validar que la cuenta esté activa
             if (!cuenta.getEstado()) {
                 return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                    .body(ErrorDTO.of("ERR_002",
+                    .body(ErrorDTO.of("ACC_401_CUENTA_INACTIVA",
                         "La cuenta se encuentra inactiva",
                         "No se pueden realizar movimientos en una cuenta inactiva"));
             }
 
             // Preparar el movimiento
-            var movimiento = new Movimiento();
+            Movimiento movimiento = new Movimiento();
             movimiento.setCuenta(cuenta);
             movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(movimientoDto.getTipomovimiento()));
             movimiento.setMontomovimiento(movimientoDto.getMontomovimiento());
             movimiento.setMovimientodescripcion(movimientoDto.getMovimientodescripcion());
             
             // Realizar el movimiento y obtener el resultado
-            var movimientoRealizado = movimientoService.realizarMovimiento(movimiento);
+            Movimiento movimientoRealizado = movimientoService.realizarMovimiento(movimiento);
             return ResponseEntity.ok(dtoConverter.toDto(movimientoRealizado));
         } catch (SaldoNoDisponibleException e) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(ErrorDTO.of("ERR_003",
+                .body(ErrorDTO.of("MOV_401_SALDO_INSUFICIENTE",
                     e.getMessage(),
                     "Saldo insuficiente para realizar el retiro"));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_201_CUENTA",
                     "Cuenta no encontrada con número: " + numeroCuenta,
                     "La cuenta especificada no existe"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al realizar el movimiento"));
         }
@@ -292,7 +274,7 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(movimientos);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al obtener los movimientos"));
         }
@@ -300,18 +282,18 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Obtener movimiento por ID")
     @GetMapping("/movimientos/{id}")
-    public ResponseEntity<?> getMovimientoById(@PathVariable Long id) {
+    public ResponseEntity<?> getMovimientoById(@PathVariable("id") Long id) {
         try {
             Movimiento movimiento = movimientoService.findById(id);
             return ResponseEntity.ok(dtoConverter.toDto(movimiento));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_202_MOVIMIENTO",
                     "Movimiento no encontrado con ID: " + id,
                     "El movimiento solicitado no existe"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al obtener el movimiento"));
         }
@@ -319,7 +301,7 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Obtener todos los movimientos por cuenta")
     @GetMapping("/movimientos/cuenta/{numeroCuenta}")
-    public ResponseEntity<?> getMovimientosByCuenta(@PathVariable Integer numeroCuenta) {
+    public ResponseEntity<?> getMovimientosByCuenta(@PathVariable("numeroCuenta") Integer numeroCuenta) {
         try {
             List<MovimientoDTO> movimientos = movimientoService.findByNumeroCuenta(numeroCuenta).stream()
                     .map(dtoConverter::toDto)
@@ -327,7 +309,7 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(movimientos);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al obtener los movimientos"));
         }
@@ -336,7 +318,7 @@ public class CuentaMovimientoController {
     @Operation(summary = "Obtener movimientos por cuenta y fechas")
     @GetMapping("/movimientos/cuenta/{numeroCuenta}/fechas")
     public ResponseEntity<?> getMovimientosByFecha(
-            @PathVariable Integer numeroCuenta,
+        @PathVariable("numeroCuenta") Integer numeroCuenta,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         try {
@@ -349,7 +331,7 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(movimientos);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al obtener los movimientos"));
         }
@@ -357,18 +339,18 @@ public class CuentaMovimientoController {
 
     @Operation(summary = "Actualizar movimiento")
     @PutMapping("/movimientos/{id}")
-    public ResponseEntity<?> updateMovimiento(@PathVariable Long id, @Valid @RequestBody MovimientoDTO movimientoDto) {
+    public ResponseEntity<?> updateMovimiento(@PathVariable("id") Long id, @Valid @RequestBody MovimientoDTO movimientoDto) {
         try {
             Movimiento movimiento = movimientoService.update(id, movimientoDto);
             return ResponseEntity.ok(dtoConverter.toDto(movimiento));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_202_MOVIMIENTO",
                     "Movimiento no encontrado con ID: " + id,
                     "El movimiento que intenta actualizar no existe"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al actualizar el movimiento"));
         }
@@ -381,7 +363,7 @@ public class CuentaMovimientoController {
                            "El movimiento anulado tendrá estado=false (esReverso=true en respuesta), " +
                            "el movimiento de reverso tendrá estado=true (esReverso=false en respuesta)")
     @DeleteMapping("/movimientos/{id}")
-    public ResponseEntity<?> deleteMovimiento(@PathVariable Long id) {
+    public ResponseEntity<?> deleteMovimiento(@PathVariable("id") Long id) {
         try {
             movimientoService.deleteById(id);
             return ResponseEntity.ok(ErrorDTO.of("SUCCESS",
@@ -389,22 +371,22 @@ public class CuentaMovimientoController {
                 "El movimiento original ha sido anulado y se ha creado un movimiento de reverso."));
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_202_MOVIMIENTO",
                     "Movimiento no encontrado con ID: " + id,
                     "El movimiento que intenta anular no existe"));
         } catch (SaldoNoDisponibleException e) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(ErrorDTO.of("ERR_003",
+                .body(ErrorDTO.of("MOV_401_SALDO_INSUFICIENTE",
                     e.getMessage(),
                     "No hay saldo suficiente para revertir el movimiento"));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorDTO.of("ERR_004",
+                .body(ErrorDTO.of("MOV_402_NO_REVERSIBLE",
                     e.getMessage(),
                     "El movimiento no puede ser revertido"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al anular el movimiento"));
         }
@@ -419,7 +401,7 @@ public class CuentaMovimientoController {
     })
     @GetMapping("/reportes/cuenta/{numeroCuenta}")
     public ResponseEntity<?> generarReporteCuenta(
-            @PathVariable Integer numeroCuenta,
+        @PathVariable("numeroCuenta") Integer numeroCuenta,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         try {
@@ -434,12 +416,12 @@ public class CuentaMovimientoController {
             return ResponseEntity.ok(reporte);
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorDTO.of("ERR_001",
+                .body(ErrorDTO.of("NOT_201_CUENTA",
                     "Cuenta no encontrada con número: " + numeroCuenta,
                     "La cuenta especificada no existe"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error al generar el reporte"));
         }
@@ -469,7 +451,7 @@ public class CuentaMovimientoController {
      * Crea la lista de información de movimientos de una cuenta
      */
     private List<Map<String, Object>> createMovimientosInfo(Cuenta cuenta, LocalDate fechaInicio, LocalDate fechaFin) {
-        var movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
+        List<Movimiento> movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
             cuenta.getNumerocuenta(), fechaInicio, fechaFin);
 
         return movimientos.stream()

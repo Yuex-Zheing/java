@@ -61,35 +61,35 @@ public class OnboardingController {
         } catch (EntityAlreadyExistsException e) {
             log.warn("Entidad ya existe durante onboarding: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorDTO.of("ERR_CONFLICT_001",
+                .body(ErrorDTO.of("ONB_300_DUP_ENTIDAD",
                     e.getMessage(),
                     String.format("La %s especificada ya existe en el sistema", e.getEntityType())));
                     
         } catch (ValidationException e) {
             log.warn("Error de validación durante onboarding: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorDTO.of("ERR_VALIDATION_001",
+                .body(ErrorDTO.of("ONB_100_VALIDACION_FALLIDA",
                     e.getMessage(),
                     "Los datos proporcionados no son válidos"));
                     
         } catch (ExternalServiceException e) {
             log.error("Error en servicio externo durante onboarding: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body(ErrorDTO.of("ERR_EXT_001",
+                .body(ErrorDTO.of("EXT_500_SERVICIO_EXTERNO",
                     "Error en servicio externo: " + e.getMessage(),
                     "Ha ocurrido un error al comunicarse con los servicios externos"));
                     
         } catch (OnboardingException e) {
             log.error("Error durante proceso de onboarding: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_ONB_001",
+                .body(ErrorDTO.of("ONB_500_ERROR_PROCESO",
                     e.getMessage(),
                     "Ha ocurrido un error durante el proceso de onboarding"));
                     
         } catch (Exception e) {
             log.error("Error inesperado durante onboarding: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorDTO.of("ERR_999",
+                .body(ErrorDTO.of("GEN_000_ERROR_INTERNO",
                     e.getMessage(),
                     "Ha ocurrido un error inesperado"));
         }

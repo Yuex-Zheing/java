@@ -56,7 +56,7 @@ public class PersonaClienteController {
     @Operation(summary = "Obtener una persona por ID")
     @GetMapping("/personas/{id}")
     public ResponseEntity<PersonaDTO> getPersonaById(
-            @Parameter(description = "ID de la persona") @PathVariable Long id) {
+        @Parameter(description = "ID de la persona") @PathVariable("id") Long id) {
         Persona persona = personaService.findById(id);
         if (persona != null) {
             return ResponseEntity.ok(dtoConverter.toPersonaDTO(persona));
@@ -67,7 +67,7 @@ public class PersonaClienteController {
     @Operation(summary = "Obtener una persona por número de identificación")
     @GetMapping("/personas/identificacion/{identificacion}")
     public ResponseEntity<PersonaDTO> getPersonaByIdentificacion(
-            @Parameter(description = "Número de identificación de la persona") @PathVariable String identificacion) {
+        @Parameter(description = "Número de identificación de la persona") @PathVariable("identificacion") String identificacion) {
         Persona persona = personaService.findByIdentificacionOptional(identificacion);
         if (persona != null && Boolean.TRUE.equals(persona.getEstado())) {
             return ResponseEntity.ok(dtoConverter.toPersonaDTO(persona));
@@ -133,7 +133,7 @@ public class PersonaClienteController {
     @Operation(summary = "Obtener un cliente por ID")
     @GetMapping("/clientes/{id}")
     public ResponseEntity<ClienteDTO> getClienteById(
-            @Parameter(description = "ID del cliente") @PathVariable Long id) {
+        @Parameter(description = "ID del cliente") @PathVariable("id") Long id) {
         Cliente cliente = clienteService.findById(id);
         if (cliente != null) {
             return ResponseEntity.ok(dtoConverter.toClienteDTO(cliente));
@@ -144,7 +144,7 @@ public class PersonaClienteController {
     @Operation(summary = "Obtener un cliente por ID de persona")
     @GetMapping("/clientes/persona/{personaId}")
     public ResponseEntity<ClienteDTO> getClienteByPersonaId(
-            @Parameter(description = "ID de la persona") @PathVariable Long personaId) {
+        @Parameter(description = "ID de la persona") @PathVariable("personaId") Long personaId) {
         List<Cliente> clientes = clienteService.findAll();
         Cliente cliente = clientes.stream()
                 .filter(c -> c.getPersona().getIdpersona().equals(personaId) && Boolean.TRUE.equals(c.getEstado()))
@@ -160,7 +160,7 @@ public class PersonaClienteController {
     @Operation(summary = "Obtener un cliente por nombre de usuario")
     @GetMapping("/clientes/nombre-usuario/{nombreUsuario}")
     public ResponseEntity<ClienteDTO> getClienteByNombreUsuario(
-            @Parameter(description = "Nombre de usuario del cliente") @PathVariable String nombreUsuario) {
+        @Parameter(description = "Nombre de usuario del cliente") @PathVariable("nombreUsuario") String nombreUsuario) {
         List<Cliente> clientes = clienteService.findAll();
         Cliente cliente = clientes.stream()
                 .filter(c -> c.getNombreusuario().equals(nombreUsuario) && Boolean.TRUE.equals(c.getEstado()))
@@ -195,7 +195,7 @@ public class PersonaClienteController {
     @Operation(summary = "Actualizar un cliente existente")
     @PutMapping("/clientes/{id}")
     public ResponseEntity<?> updateCliente(
-            @Parameter(description = "ID del cliente") @PathVariable Long id,
+        @Parameter(description = "ID del cliente") @PathVariable("id") Long id,
             @Parameter(description = "Datos actualizados del cliente") @Valid @RequestBody UpdateClienteDTO updateClienteDTO) {
         try {
             Cliente existingCliente = clienteService.findById(id);
@@ -213,7 +213,7 @@ public class PersonaClienteController {
     @Operation(summary = "Eliminar un cliente")
     @DeleteMapping("/clientes/{id}")
     public ResponseEntity<?> deleteCliente(
-            @Parameter(description = "ID del cliente") @PathVariable Long id) {
+        @Parameter(description = "ID del cliente") @PathVariable("id") Long id) {
         try {
             clienteService.delete(id);
             return ResponseEntity.ok().build();
