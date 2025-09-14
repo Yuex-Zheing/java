@@ -7,6 +7,10 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
+// Contrato REST para movimientos. Campos id/fecha/hora/saldo se generan en el servidor.
+// Cliente solo debe enviar: movimientodescripcion, tipomovimiento, montomovimiento.
+// numeroCuenta llega por path (no obligatorio en body) pero se mantiene para algunos flujos.
+// esReverso se deriva (true si movimiento original fue anulado); no enviar desde clientes.
 public class MovimientoDTO {
     @JsonProperty("id")
     private Long id;

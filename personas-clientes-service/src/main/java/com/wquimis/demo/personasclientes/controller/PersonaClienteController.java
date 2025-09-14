@@ -1,6 +1,6 @@
 package com.wquimis.demo.personasclientes.controller;
 
-import com.wquimis.demo.personasclientes.dto.ErrorDTO;
+import com.wquimis.demo.common.dto.ErrorDTO;
 import com.wquimis.demo.personasclientes.dto.PersonaDTO;
 import com.wquimis.demo.personasclientes.dto.PersonaUpdateDTO;
 import com.wquimis.demo.personasclientes.dto.ClienteDTO;

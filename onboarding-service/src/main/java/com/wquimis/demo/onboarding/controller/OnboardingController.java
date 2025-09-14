@@ -1,6 +1,6 @@
 package com.wquimis.demo.onboarding.controller;
 
-import com.wquimis.demo.onboarding.dto.ErrorDTO;
+import com.wquimis.demo.common.dto.ErrorDTO;
 import com.wquimis.demo.onboarding.dto.OnboardingRequestDTO;
 import com.wquimis.demo.onboarding.dto.OnboardingResponseDTO;
 import com.wquimis.demo.onboarding.exceptions.EntityAlreadyExistsException;

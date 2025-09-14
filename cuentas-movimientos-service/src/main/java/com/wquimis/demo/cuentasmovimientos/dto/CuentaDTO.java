@@ -6,6 +6,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
+// Contrato REST: usado para creación y representación de cuentas.
+// Campos expuestos en respuestas: numeroCuenta, idCliente, tipoCuenta, saldoInicial,
+// saldoDisponible (puede ser null al crear y luego refleja saldoinicial), estado, fechas.
+// Evitar agregar campos derivados aquí para mantener DTO estable.
 public class CuentaDTO {
     @NotNull(message = "El número de cuenta es requerido")
     @Min(value = 100000, message = "El número de cuenta debe ser de 6 dígitos")

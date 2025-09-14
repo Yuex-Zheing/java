@@ -521,5 +521,40 @@ Este proyecto representa una implementación completa de microservicios bancario
 - ✅ **Configuración flexible** para múltiples entornos
 - ✅ **Monitoreo y observabilidad** integrados
 
+
+
 **¡Listo para desarrollo, testing y deployment!** 🚀
 ````
+## 🧹 Mantenibilidad y Convenciones (Refactor 2025-09)
+
+### Principios Adoptados
+- Separación clara Request vs Response cuando hay diferencia semántica (p.ej. creación de cliente vs datos expuestos).  
+- No exponer campos sensibles (contrasena) en DTO de respuesta.  
+- Evitar lógica de negocio en DTOs (solo validaciones de formato / dominio simple con Bean Validation).  
+- Idempotencia en creación de cuenta y movimiento inicial (se evita doble acreditación del saldo).  
+
+### DTO Clave
+- `CuentaDTO`: Creación y representación. `saldoDisponible` puede ser null en el request; el servidor lo inicializa.  
+- `MovimientoDTO`: El cliente envía únicamente `movimientodescripcion`, `tipomovimiento`, `montomovimiento`. Campos `id`, `fecha`, `hora`, `saldo`, `esReverso` son calculados/derivados.  
+- `ClienteDTO` / `ClienteResponseDTO`: Se mantiene separación para proteger campos de entrada (p.ej. contrasena) y permitir evolución independiente.  
+
+### Eliminaciones / Deprecaciones
+- `personas-clientes-service`: `OnboardingRequestDTO` eliminado (no tenía referencias).  
+- `ErrorDTO` centralizado en módulo `common-lib` y removido de servicios individuales.  
+
+### Reglas de Extensión
+1. Antes de agregar un nuevo DTO, validar si un DTO existente puede ampliarse sin romper compatibilidad.  
+2. Nuevos campos deben ser opcionales (nullables) por defecto en requests para no romper clientes.  
+3. No colocar lógica de transformación en controladores; usar servicios o converters.  
+
+### Errores y Manejo de Excepciones
+- `ErrorDTO` repetido por servicio por simplicidad de despliegue. Futuro: extraer a módulo común si se consolida repositorio multi-módulo.  
+
+### Futuras Mejores (Opcionales)
+- Unificar `ErrorDTO` en librería compartida.  
+- Reemplazar conversor manual por MapStruct si crece complejidad.  
+- Introducir un flag explícito para detectar depósito inicial en lugar de heurística basada en descripción.  
+
+### Auditoría de Doble Saldo (Resumen)
+Se detectó doble acreditación potencial al crear cuenta + movimiento inicial. Solución: detección en `MovimientoServiceImpl` para omitir acreditación si coincide patrón de depósito inicial ya reflejado en `saldodisponible`.
+

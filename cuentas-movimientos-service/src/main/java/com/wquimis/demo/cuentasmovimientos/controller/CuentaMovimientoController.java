@@ -1,7 +1,7 @@
 package com.wquimis.demo.cuentasmovimientos.controller;
 
 import com.wquimis.demo.cuentasmovimientos.dto.CuentaDTO;
-import com.wquimis.demo.cuentasmovimientos.dto.ErrorDTO;
+import com.wquimis.demo.common.dto.ErrorDTO;
 import com.wquimis.demo.cuentasmovimientos.dto.MovimientoDTO;
 import com.wquimis.demo.cuentasmovimientos.dto.UpdateCuentaDTO;
 import com.wquimis.demo.cuentasmovimientos.exceptions.CuentaExistenteException;
@@ -151,7 +151,7 @@ public class CuentaMovimientoController {
     @PostMapping("/cuentas")
     public ResponseEntity<?> createCuenta(@Valid @RequestBody CuentaDTO cuentaDto) {
         try {
-            var cuenta = dtoConverter.toEntity(cuentaDto);
+            Cuenta cuenta = dtoConverter.toEntity(cuentaDto);
             Cuenta cuentaCreada = cuentaService.save(cuenta);
             
             return ResponseEntity.ok(dtoConverter.toDto(cuentaCreada));
@@ -226,7 +226,7 @@ public class CuentaMovimientoController {
             @Valid @RequestBody MovimientoDTO movimientoDto) {
         try {
             // Verificar que la cuenta existe
-            var cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
+            Cuenta cuenta = cuentaService.findByNumeroCuenta(numeroCuenta);
             
             // Validar que la cuenta esté activa
             if (!cuenta.getEstado()) {
@@ -237,14 +237,14 @@ public class CuentaMovimientoController {
             }
 
             // Preparar el movimiento
-            var movimiento = new Movimiento();
+            Movimiento movimiento = new Movimiento();
             movimiento.setCuenta(cuenta);
             movimiento.setTipomovimiento(Movimiento.TipoMovimiento.valueOf(movimientoDto.getTipomovimiento()));
             movimiento.setMontomovimiento(movimientoDto.getMontomovimiento());
             movimiento.setMovimientodescripcion(movimientoDto.getMovimientodescripcion());
             
             // Realizar el movimiento y obtener el resultado
-            var movimientoRealizado = movimientoService.realizarMovimiento(movimiento);
+            Movimiento movimientoRealizado = movimientoService.realizarMovimiento(movimiento);
             return ResponseEntity.ok(dtoConverter.toDto(movimientoRealizado));
         } catch (SaldoNoDisponibleException e) {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
@@ -451,7 +451,7 @@ public class CuentaMovimientoController {
      * Crea la lista de información de movimientos de una cuenta
      */
     private List<Map<String, Object>> createMovimientosInfo(Cuenta cuenta, LocalDate fechaInicio, LocalDate fechaFin) {
-        var movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
+        List<Movimiento> movimientos = movimientoService.findByNumeroCuentaAndFechaBetween(
             cuenta.getNumerocuenta(), fechaInicio, fechaFin);
 
         return movimientos.stream()
