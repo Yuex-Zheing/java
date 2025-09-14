@@ -521,8 +521,6 @@ Este proyecto representa una implementación completa de microservicios bancario
 - ✅ **Configuración flexible** para múltiples entornos
 - ✅ **Monitoreo y observabilidad** integrados
 
-
-
 **¡Listo para desarrollo, testing y deployment!** 🚀
 ````
 ## 🧹 Mantenibilidad y Convenciones (Refactor 2025-09)
