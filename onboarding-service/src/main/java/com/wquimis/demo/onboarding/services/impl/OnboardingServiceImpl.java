@@ -148,6 +148,15 @@ public class OnboardingServiceImpl implements OnboardingService {
             
         } catch (EntityAlreadyExistsException | ValidationException e) {
             throw e;
+        } catch (ExternalServiceException e) {
+            // Propagación directa de fallo externo (persona service)
+            throw e;
+        } catch (WebClientResponseException e) {
+            log.error("Error HTTP inesperado al procesar persona: Status {} Body {}", e.getStatusCode(), e.getResponseBodyAsString());
+            if (e.getStatusCode().is5xxServerError()) {
+                throw new ExternalServiceException("Servicio personas respondió 5xx al procesar persona: " + parseErrorMessage(e), e);
+            }
+            throw e; // otras (400, 404 ya manejado en búsqueda) se re-lanzan
         } catch (Exception e) {
             log.error("Error al procesar persona: {}", e.getMessage(), e);
             throw new OnboardingException("Error al procesar persona: " + e.getMessage(), e);
@@ -329,7 +338,10 @@ public class OnboardingServiceImpl implements OnboardingService {
                 log.debug("No se encontraron cuentas para cliente ID: {}", clienteId);
                 return new CuentaDTO[0];
             }
-            throw e;
+            if (e.getStatusCode().is5xxServerError()) {
+                throw new ExternalServiceException("Servicio cuentas respondió 5xx al consultar cuentas del cliente: " + clienteId + ". Detalle: " + parseErrorMessage(e), e);
+            }
+            throw e; // otras (400, etc.) se propagan para tratamiento superior
         }
     }
 
@@ -406,6 +418,8 @@ public class OnboardingServiceImpl implements OnboardingService {
                 // Manejo específico para errores de MySQL de clave duplicada
                 throw new EntityAlreadyExistsException("persona", personaRequest.getIdentificacionpersona(),
                     "La persona con esta identificación ya existe en el sistema");
+            } else if (e.getStatusCode().is5xxServerError()) {
+                throw new ExternalServiceException("Servicio personas respondió 5xx al crear persona: " + parseErrorMessage(e), e);
             }
             
             throw new ExternalServiceException("Error al crear persona: " + parseErrorMessage(e), e);
@@ -450,6 +464,8 @@ public class OnboardingServiceImpl implements OnboardingService {
                 // Manejo específico para errores de MySQL de clave duplicada
                 throw new EntityAlreadyExistsException("cliente", clienteRequest.getNombreUsuario(),
                     "Ya existe un cliente para esta persona o el nombre de usuario está en uso");
+            } else if (e.getStatusCode().is5xxServerError()) {
+                throw new ExternalServiceException("Servicio personas respondió 5xx al crear cliente: " + parseErrorMessage(e), e);
             }
             
             throw new ExternalServiceException("Error al crear cliente: " + parseErrorMessage(e), e);
@@ -495,6 +511,8 @@ public class OnboardingServiceImpl implements OnboardingService {
                 // Manejo específico para errores de MySQL de clave duplicada
                 throw new EntityAlreadyExistsException("cuenta", numeroCuenta.toString(),
                     "La cuenta con este número ya existe en el sistema");
+            } else if (e.getStatusCode().is5xxServerError()) {
+                throw new ExternalServiceException("Servicio cuentas respondió 5xx al crear cuenta número " + numeroCuenta + ": " + parseErrorMessage(e), e);
             }
             
             throw new ExternalServiceException("Error al crear cuenta: " + parseErrorMessage(e), e);

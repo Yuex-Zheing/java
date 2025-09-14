@@ -538,7 +538,7 @@ Este proyecto representa una implementación completa de microservicios bancario
 
 ### Eliminaciones / Deprecaciones
 - `personas-clientes-service`: `OnboardingRequestDTO` eliminado (no tenía referencias).  
-- `ErrorDTO` centralizado en módulo `common-lib` y removido de servicios individuales.  
+- (Revertido) Se evaluó centralizar `ErrorDTO` en `common-lib`, pero se volvió al patrón local por servicio para reducir acoplamiento temprano.  
 
 ### Reglas de Extensión
 1. Antes de agregar un nuevo DTO, validar si un DTO existente puede ampliarse sin romper compatibilidad.  
@@ -546,7 +546,7 @@ Este proyecto representa una implementación completa de microservicios bancario
 3. No colocar lógica de transformación en controladores; usar servicios o converters.  
 
 ### Errores y Manejo de Excepciones
-- `ErrorDTO` repetido por servicio por simplicidad de despliegue. Futuro: extraer a módulo común si se consolida repositorio multi-módulo.  
+- `ErrorDTO` mantenido por servicio (reversión de centralización) para aislar cambios y permitir evolución independiente. Futuro: sólo re-centralizar si aparecen más de 3 tipos de objetos de error compartidos o necesidad de versión semántica.  
 
 ### Futuras Mejores (Opcionales)
 - Unificar `ErrorDTO` en librería compartida.  

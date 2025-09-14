@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
 
 @Service
 public class PersonaServiceImpl implements PersonaService {
@@ -48,16 +50,21 @@ public class PersonaServiceImpl implements PersonaService {
     @Override
     @Transactional
     public Persona save(Persona persona) {
-        // Verificar si ya existe una persona con la misma identificación
-        personaRepository.findByIdentificacionpersona(persona.getIdentificacionpersona())
-            .ifPresent(p -> {
-                throw new PersonaExistenteException(persona.getIdentificacionpersona());
-            });
+        try {
+            // Verificación preventiva
+            personaRepository.findByIdentificacionpersona(persona.getIdentificacionpersona())
+                .ifPresent(p -> { throw new PersonaExistenteException(persona.getIdentificacionpersona()); });
 
-        if (persona.getEstado() == null) {
-            persona.setEstado(true);
+            if (persona.getEstado() == null) {
+                persona.setEstado(true);
+            }
+            return personaRepository.save(persona);
+        } catch (PersonaExistenteException e) {
+            throw e;
+        } catch (IncorrectResultSizeDataAccessException | DataIntegrityViolationException e) {
+            // Degradar a excepción de dominio consistente si el índice único dispara después de la carrera
+            throw new PersonaExistenteException(persona.getIdentificacionpersona());
         }
-        return personaRepository.save(persona);
     }
 
     @Override
